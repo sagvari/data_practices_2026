@@ -1,0 +1,108 @@
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const toc = document.getElementById('TOC');
+    if (!toc) {
+        return;
+    }
+
+    const persistentKey = 'tocLockedState';
+    let isLocked = localStorage.getItem(persistentKey) === '1';
+    let isPeekOpen = false;
+
+    const content = document.createElement('div');
+    content.className = 'doc-content';
+
+    const toMove = [];
+    Array.from(document.body.children).forEach(function(el) {
+        if (el.id !== 'TOC') {
+            toMove.push(el);
+        }
+    });
+    toMove.forEach(function(el) {
+        content.appendChild(el);
+    });
+    document.body.appendChild(content);
+
+    const controls = document.createElement('div');
+    controls.id = 'toc-controls';
+
+    const menuBtn = document.createElement('button');
+    menuBtn.className = 'toc-btn';
+    menuBtn.type = 'button';
+    menuBtn.textContent = 'TOC';
+    menuBtn.setAttribute('aria-label', 'Show or hide table of contents');
+
+    const lockBtn = document.createElement('button');
+    lockBtn.className = 'toc-btn';
+    lockBtn.type = 'button';
+    lockBtn.textContent = 'Lock';
+    lockBtn.setAttribute('aria-label', 'Lock table of contents open');
+
+    controls.appendChild(menuBtn);
+    controls.appendChild(lockBtn);
+    document.body.appendChild(controls);
+
+    const edgeHit = document.createElement('div');
+    edgeHit.id = 'toc-edge-hit';
+    edgeHit.setAttribute('aria-hidden', 'true');
+    document.body.appendChild(edgeHit);
+
+    function applyState() {
+        document.body.classList.toggle('toc-locked', isLocked);
+        document.body.classList.toggle('toc-peek', !isLocked && isPeekOpen);
+        lockBtn.classList.toggle('is-active', isLocked);
+        lockBtn.textContent = isLocked ? 'Unlock' : 'Lock';
+        menuBtn.textContent = isLocked ? 'TOC' : (isPeekOpen ? 'Hide' : 'TOC');
+    }
+
+    function setLocked(nextLocked) {
+        isLocked = nextLocked;
+        if (isLocked) {
+            isPeekOpen = false;
+            localStorage.setItem(persistentKey, '1');
+        } else {
+            localStorage.setItem(persistentKey, '0');
+        }
+        applyState();
+    }
+
+    menuBtn.addEventListener('click', function() {
+        if (isLocked) {
+            return;
+        }
+        isPeekOpen = !isPeekOpen;
+        applyState();
+    });
+
+    lockBtn.addEventListener('click', function() {
+        setLocked(!isLocked);
+    });
+
+    edgeHit.addEventListener('mouseenter', function() {
+        if (!isLocked) {
+            isPeekOpen = true;
+            applyState();
+        }
+    });
+
+    toc.addEventListener('mouseleave', function() {
+        if (!isLocked) {
+            isPeekOpen = false;
+            applyState();
+        }
+    });
+
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') {
+            if (isLocked) {
+                setLocked(false);
+            } else if (isPeekOpen) {
+                isPeekOpen = false;
+                applyState();
+            }
+        }
+    });
+
+    applyState();
+});
+</script>
