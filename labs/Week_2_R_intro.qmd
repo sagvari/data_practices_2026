@@ -1,0 +1,223 @@
+---
+title: "Week_2_Intro_to_R"
+format: html
+editor: visual
+---
+
+## Creating a new project
+
+## Project Setup in RStudio
+
+Before you start analyzing data, it's important to organize your work in an **R Project**. This keeps all your files, scripts, and data together in one location.
+
+### Step-by-Step Setup
+
+1.  **Open RStudio** and go to **File** → **New Project**
+
+2.  Select **New Directory** and choose **New Project**
+
+3.  Give your project a meaningful name (e.g., `week_2_analysis` or `penguin_study`)
+
+4.  Choose where you want to save it on your computer
+
+5.  Click **Create Project** – RStudio will restart in your new project
+
+### What Just Happened?
+
+RStudio created a folder with: - A `.Rproj` file (the project file) - Your working directory is now set to this folder - All your scripts and data will live here
+
+### Create Subfolders (Optional but recommended)
+
+In the Files panel (bottom right), create these folders:
+
+-   data/
+-   scripts/
+-   output/
+-   misc/
+
+## Prerequisites - installing packages
+
+```{r}
+options(repos = c(CRAN = "https://cran.rstudio.com"))
+#| eval: false
+
+install.packages("tidyverse")
+library(tidyverse)
+
+install.packages("here") # this will make your life much easier when working with folders
+library(here)
+here()
+
+```
+
+## Let's have some data and play with it
+
+
+### #1 Penguins
+
+The Palmer Penguins dataset contains measurements and observations of three penguin species observed near Palmer Station in Antarctica. With 344 observations and realistic missing data.
+
+```{r}
+#install.packages("palmerpenguins")
+library(palmerpenguins) 
+data(penguins)
+
+head(penguins)
+glimpse(penguins)
+```
+
+### Do a quick demo data visualization
+
+Recreate the visualization displaying the relationship between flipper lengths and body masses of these penguins, taking into consideration the species of the penguin.
+
+```{r}
+ggplot(data = penguins)
+```
+
+```{r}
+ggplot(
+  data = penguins,
+  mapping = aes(x = flipper_length_mm, y = body_mass_g)
+)
+```
+
+```{r}
+ggplot(
+  data = penguins,
+  mapping = aes(x = flipper_length_mm, y = body_mass_g)
+) +
+  geom_point()
+```
+
+```{r}
+ggplot(
+  data = penguins,
+  mapping = aes(x = flipper_length_mm, y = body_mass_g, color = species)
+) +
+  geom_point()
+```
+
+```{r}
+ggplot(
+  data = penguins,
+  mapping = aes(x = flipper_length_mm, y = body_mass_g, color = species)
+) +
+  geom_point() +
+  geom_smooth(method = "lm")
+```
+
+```{r}
+ggplot(
+  data = penguins,
+  mapping = aes(x = flipper_length_mm, y = body_mass_g)
+) +
+  geom_point(mapping = aes(color = species)) +
+  geom_smooth(method = "lm")
+```
+
+```{r}
+ggplot(
+  data = penguins,
+  mapping = aes(x = flipper_length_mm, y = body_mass_g)
+) +
+  geom_point(mapping = aes(color = species, shape = species)) +
+  geom_smooth(method = "lm")
+```
+
+```{r}
+library(ggthemes)
+ggplot(
+  data = penguins,
+  mapping = aes(x = flipper_length_mm, y = body_mass_g)
+) +
+  geom_point(aes(color = species, shape = species)) +
+  geom_smooth(method = "lm") +
+  labs(
+    title = "Body mass and flipper length",
+    subtitle = "Dimensions for Adelie, Chinstrap, and Gentoo Penguins",
+    x = "Flipper length (mm)", y = "Body mass (g)",
+    color = "Species", shape = "Species"
+  ) +
+  scale_color_colorblind()
+```
+
+A few other ideas (basic chart types) for visualization
+```{r}
+ggplot(penguins, aes(x = fct_infreq(species))) + # remove fct_infreq() and see what changed!
+  geom_bar()
+```
+
+```{r}
+ggplot(penguins, aes(x = body_mass_g)) +
+  geom_histogram(binwidth = 200) # experiment with binwidth
+```
+
+```{r}
+ggplot(penguins, aes(x = species, y = body_mass_g)) +
+  geom_boxplot()
+```
+
+```{r}
+ggplot(penguins, aes(x = body_mass_g, color = species, fill = species)) +
+  geom_density(alpha = 0.5)
+```
+
+```{r}
+ggplot(penguins, aes(x = body_mass_g)) +
+  geom_histogram(binwidth = 200) # experiment with binwidth
+```
+
+```{r}
+ggplot(
+  data = penguins,
+  mapping = aes(x = flipper_length_mm, y = body_mass_g)
+) +
+  geom_point(aes(color = species, shape = species)) +
+  geom_smooth(method = "lm") +
+  labs(
+    title = "Body mass and flipper length",
+    subtitle = "Dimensions for Adelie, Chinstrap, and Gentoo Penguins",
+    x = "Flipper length (mm)", y = "Body mass (g)",
+    color = "Species", shape = "Species"
+  ) +
+  scale_color_colorblind()
+
+ggsave(filename = here("out","penguin-plot.png")) # saving in .png (bitmap)
+ggsave(filename = here("out","penguin-plot.svg")) # saving in .svg (vector)
+
+ggsave(filename = "penguin-plot.png",
+       width=4,
+       height=4,
+       dpi=600) # adjust the size
+
+
+```
+
+### How to save a plot?
+
+
+
+### #2 Baby names (in the US)
+
+Loading some interesting and funny sample data
+
+We'll explore the dataset of US baby names. This dataset contains historical records of baby names given in the United States, spanning over a century. Let's learn how to load and examine this data.
+
+First, we need to install and load the `babynames` package:
+
+```{r}
+# Install the package (run once)
+#| eval: false
+install.packages("babynames")
+# The hash symbol is for comments. Anything you put after it will not be executed. It is super-important to make your code professional. (You will remember what and why you did, work together with others, and make your research replicable and verifiable - that is becoming a basic requirement in academia.)
+
+# Load the package
+library(babynames)
+
+# Load the dataset into our environment
+data(babynames)
+
+head(babynames)
+colnames(babynames)
+glimpse(babynames)
+```

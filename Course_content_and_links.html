@@ -1,386 +1,584 @@
 <!DOCTYPE html>
 <html xmlns="http://www.w3.org/1999/xhtml">
+
 <head>
-  <meta charset="utf-8" />
-  <meta name="generator" content="pandoc" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
-  <title>Course_content_and_links</title>
-  <style>
-    /* Default styles provided by pandoc.
+    <meta charset="utf-8" />
+    <meta name="generator" content="pandoc" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+    <title>Course_content_and_links</title>
+    <style>
+        /* Default styles provided by pandoc.
     ** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
     */
-    code{white-space: pre-wrap;}
-    span.smallcaps{font-variant: small-caps;}
-    div.columns{display: flex; gap: min(4vw, 1.5em);}
-    div.column{flex: auto; overflow-x: auto;}
-    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
-    /* The extra [class] is a hack that increases specificity enough to
+        code {
+            white-space: pre-wrap;
+        }
+
+        span.smallcaps {
+            font-variant: small-caps;
+        }
+
+        div.columns {
+            display: flex;
+            gap: min(4vw, 1.5em);
+        }
+
+        div.column {
+            flex: auto;
+            overflow-x: auto;
+        }
+
+        div.hanging-indent {
+            margin-left: 1.5em;
+            text-indent: -1.5em;
+        }
+
+        /* The extra [class] is a hack that increases specificity enough to
        override a similar rule in reveal.js */
-    ul.task-list[class]{list-style: none;}
-    ul.task-list li input[type="checkbox"] {
-      font-size: inherit;
-      width: 0.8em;
-      margin: 0 0.8em 0.2em -1.6em;
-      vertical-align: middle;
-    }
-    .display.math{display: block; text-align: center; margin: 0.5rem auto;}
-    /* CSS for syntax highlighting */
-    html { -webkit-text-size-adjust: 100%; }
-    pre > code.sourceCode { white-space: pre; position: relative; }
-    pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
-    pre > code.sourceCode > span:empty { height: 1.2em; }
-    .sourceCode { overflow: visible; }
-    code.sourceCode > span { color: inherit; text-decoration: inherit; }
-    div.sourceCode { margin: 1em 0; }
-    pre.sourceCode { margin: 0; }
-    @media screen {
-    div.sourceCode { overflow: auto; }
-    }
-    @media print {
-    pre > code.sourceCode { white-space: pre-wrap; }
-    pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
-    }
-    pre.numberSource code
-      { counter-reset: source-line 0; }
-    pre.numberSource code > span
-      { position: relative; left: -4em; counter-increment: source-line; }
-    pre.numberSource code > span > a:first-child::before
-      { content: counter(source-line);
-        position: relative; left: -1em; text-align: right; vertical-align: baseline;
-        border: none; display: inline-block;
-        -webkit-touch-callout: none; -webkit-user-select: none;
-        -khtml-user-select: none; -moz-user-select: none;
-        -ms-user-select: none; user-select: none;
-        padding: 0 4px; width: 4em;
-        color: #aaaaaa;
-      }
-    pre.numberSource { margin-left: 3em; border-left: 1px solid #aaaaaa;  padding-left: 4px; }
-    div.sourceCode
-      {   }
-    @media screen {
-    pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
-    }
-    code span.al { color: #ff0000; font-weight: bold; } /* Alert */
-    code span.an { color: #60a0b0; font-weight: bold; font-style: italic; } /* Annotation */
-    code span.at { color: #7d9029; } /* Attribute */
-    code span.bn { color: #40a070; } /* BaseN */
-    code span.bu { color: #008000; } /* BuiltIn */
-    code span.cf { color: #007020; font-weight: bold; } /* ControlFlow */
-    code span.ch { color: #4070a0; } /* Char */
-    code span.cn { color: #880000; } /* Constant */
-    code span.co { color: #60a0b0; font-style: italic; } /* Comment */
-    code span.cv { color: #60a0b0; font-weight: bold; font-style: italic; } /* CommentVar */
-    code span.do { color: #ba2121; font-style: italic; } /* Documentation */
-    code span.dt { color: #902000; } /* DataType */
-    code span.dv { color: #40a070; } /* DecVal */
-    code span.er { color: #ff0000; font-weight: bold; } /* Error */
-    code span.ex { } /* Extension */
-    code span.fl { color: #40a070; } /* Float */
-    code span.fu { color: #06287e; } /* Function */
-    code span.im { color: #008000; font-weight: bold; } /* Import */
-    code span.in { color: #60a0b0; font-weight: bold; font-style: italic; } /* Information */
-    code span.kw { color: #007020; font-weight: bold; } /* Keyword */
-    code span.op { color: #666666; } /* Operator */
-    code span.ot { color: #007020; } /* Other */
-    code span.pp { color: #bc7a00; } /* Preprocessor */
-    code span.sc { color: #4070a0; } /* SpecialChar */
-    code span.ss { color: #bb6688; } /* SpecialString */
-    code span.st { color: #4070a0; } /* String */
-    code span.va { color: #19177c; } /* Variable */
-    code span.vs { color: #4070a0; } /* VerbatimString */
-    code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warning */
-  </style>
-  <link rel="stylesheet" href="style.css" />
-  <script>
-  document.addEventListener('DOMContentLoaded', function() {
-      const toc = document.getElementById('TOC');
-      if (!toc) {
-          return;
-      }
+        ul.task-list[class] {
+            list-style: none;
+        }
 
-      const persistentKey = 'tocLockedState';
-      let isLocked = localStorage.getItem(persistentKey) === '1';
-      let isPeekOpen = false;
+        ul.task-list li input[type="checkbox"] {
+            font-size: inherit;
+            width: 0.8em;
+            margin: 0 0.8em 0.2em -1.6em;
+            vertical-align: middle;
+        }
 
-      const content = document.createElement('div');
-      content.className = 'doc-content';
+        .display.math {
+            display: block;
+            text-align: center;
+            margin: 0.5rem auto;
+        }
 
-      const toMove = [];
-      Array.from(document.body.children).forEach(function(el) {
-          if (el.id !== 'TOC') {
-              toMove.push(el);
-          }
-      });
-      toMove.forEach(function(el) {
-          content.appendChild(el);
-      });
-      document.body.appendChild(content);
+        /* CSS for syntax highlighting */
+        html {
+            -webkit-text-size-adjust: 100%;
+        }
 
-      const controls = document.createElement('div');
-      controls.id = 'toc-controls';
+        pre>code.sourceCode {
+            white-space: pre;
+            position: relative;
+        }
 
-      const menuBtn = document.createElement('button');
-      menuBtn.className = 'toc-btn';
-      menuBtn.type = 'button';
-      menuBtn.textContent = 'TOC';
-      menuBtn.setAttribute('aria-label', 'Show or hide table of contents');
+        pre>code.sourceCode>span {
+            display: inline-block;
+            line-height: 1.25;
+        }
 
-      const lockBtn = document.createElement('button');
-      lockBtn.className = 'toc-btn';
-      lockBtn.type = 'button';
-      lockBtn.textContent = 'Lock';
-      lockBtn.setAttribute('aria-label', 'Lock table of contents open');
+        pre>code.sourceCode>span:empty {
+            height: 1.2em;
+        }
 
-      controls.appendChild(menuBtn);
-      controls.appendChild(lockBtn);
-      document.body.appendChild(controls);
+        .sourceCode {
+            overflow: visible;
+        }
 
-      const edgeHit = document.createElement('div');
-      edgeHit.id = 'toc-edge-hit';
-      edgeHit.setAttribute('aria-hidden', 'true');
-      document.body.appendChild(edgeHit);
+        code.sourceCode>span {
+            color: inherit;
+            text-decoration: inherit;
+        }
 
-      function applyState() {
-          document.body.classList.toggle('toc-locked', isLocked);
-          document.body.classList.toggle('toc-peek', !isLocked && isPeekOpen);
-          lockBtn.classList.toggle('is-active', isLocked);
-          lockBtn.textContent = isLocked ? 'Unlock' : 'Lock';
-          menuBtn.textContent = isLocked ? 'TOC' : (isPeekOpen ? 'Hide' : 'TOC');
-      }
+        div.sourceCode {
+            margin: 1em 0;
+        }
 
-      function setLocked(nextLocked) {
-          isLocked = nextLocked;
-          if (isLocked) {
-              isPeekOpen = false;
-              localStorage.setItem(persistentKey, '1');
-          } else {
-              localStorage.setItem(persistentKey, '0');
-          }
-          applyState();
-      }
+        pre.sourceCode {
+            margin: 0;
+        }
 
-      menuBtn.addEventListener('click', function() {
-          if (isLocked) {
-              return;
-          }
-          isPeekOpen = !isPeekOpen;
-          applyState();
-      });
+        @media screen {
+            div.sourceCode {
+                overflow: auto;
+            }
+        }
 
-      lockBtn.addEventListener('click', function() {
-          setLocked(!isLocked);
-      });
+        @media print {
+            pre>code.sourceCode {
+                white-space: pre-wrap;
+            }
 
-      edgeHit.addEventListener('mouseenter', function() {
-          if (!isLocked) {
-              isPeekOpen = true;
-              applyState();
-          }
-      });
+            pre>code.sourceCode>span {
+                text-indent: -5em;
+                padding-left: 5em;
+            }
+        }
 
-      toc.addEventListener('mouseleave', function() {
-          if (!isLocked) {
-              isPeekOpen = false;
-              applyState();
-          }
-      });
+        pre.numberSource code {
+            counter-reset: source-line 0;
+        }
 
-      document.addEventListener('keydown', function(e) {
-          if (e.key === 'Escape') {
-              if (isLocked) {
-                  setLocked(false);
-              } else if (isPeekOpen) {
-                  isPeekOpen = false;
-                  applyState();
-              }
-          }
-      });
+        pre.numberSource code>span {
+            position: relative;
+            left: -4em;
+            counter-increment: source-line;
+        }
 
-      applyState();
-  });
-  </script>
+        pre.numberSource code>span>a:first-child::before {
+            content: counter(source-line);
+            position: relative;
+            left: -1em;
+            text-align: right;
+            vertical-align: baseline;
+            border: none;
+            display: inline-block;
+            -webkit-touch-callout: none;
+            -webkit-user-select: none;
+            -khtml-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
+            user-select: none;
+            padding: 0 4px;
+            width: 4em;
+            color: #aaaaaa;
+        }
+
+        pre.numberSource {
+            margin-left: 3em;
+            border-left: 1px solid #aaaaaa;
+            padding-left: 4px;
+        }
+
+        div.sourceCode {}
+
+        @media screen {
+            pre>code.sourceCode>span>a:first-child::before {
+                text-decoration: underline;
+            }
+        }
+
+        code span.al {
+            color: #ff0000;
+            font-weight: bold;
+        }
+
+        /* Alert */
+        code span.an {
+            color: #60a0b0;
+            font-weight: bold;
+            font-style: italic;
+        }
+
+        /* Annotation */
+        code span.at {
+            color: #7d9029;
+        }
+
+        /* Attribute */
+        code span.bn {
+            color: #40a070;
+        }
+
+        /* BaseN */
+        code span.bu {
+            color: #008000;
+        }
+
+        /* BuiltIn */
+        code span.cf {
+            color: #007020;
+            font-weight: bold;
+        }
+
+        /* ControlFlow */
+        code span.ch {
+            color: #4070a0;
+        }
+
+        /* Char */
+        code span.cn {
+            color: #880000;
+        }
+
+        /* Constant */
+        code span.co {
+            color: #60a0b0;
+            font-style: italic;
+        }
+
+        /* Comment */
+        code span.cv {
+            color: #60a0b0;
+            font-weight: bold;
+            font-style: italic;
+        }
+
+        /* CommentVar */
+        code span.do {
+            color: #ba2121;
+            font-style: italic;
+        }
+
+        /* Documentation */
+        code span.dt {
+            color: #902000;
+        }
+
+        /* DataType */
+        code span.dv {
+            color: #40a070;
+        }
+
+        /* DecVal */
+        code span.er {
+            color: #ff0000;
+            font-weight: bold;
+        }
+
+        /* Error */
+        code span.ex {}
+
+        /* Extension */
+        code span.fl {
+            color: #40a070;
+        }
+
+        /* Float */
+        code span.fu {
+            color: #06287e;
+        }
+
+        /* Function */
+        code span.im {
+            color: #008000;
+            font-weight: bold;
+        }
+
+        /* Import */
+        code span.in {
+            color: #60a0b0;
+            font-weight: bold;
+            font-style: italic;
+        }
+
+        /* Information */
+        code span.kw {
+            color: #007020;
+            font-weight: bold;
+        }
+
+        /* Keyword */
+        code span.op {
+            color: #666666;
+        }
+
+        /* Operator */
+        code span.ot {
+            color: #007020;
+        }
+
+        /* Other */
+        code span.pp {
+            color: #bc7a00;
+        }
+
+        /* Preprocessor */
+        code span.sc {
+            color: #4070a0;
+        }
+
+        /* SpecialChar */
+        code span.ss {
+            color: #bb6688;
+        }
+
+        /* SpecialString */
+        code span.st {
+            color: #4070a0;
+        }
+
+        /* String */
+        code span.va {
+            color: #19177c;
+        }
+
+        /* Variable */
+        code span.vs {
+            color: #4070a0;
+        }
+
+        /* VerbatimString */
+        code span.wa {
+            color: #60a0b0;
+            font-weight: bold;
+            font-style: italic;
+        }
+
+        /* Warning */
+    </style>
+    <link rel="stylesheet" href="style.css" />
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            const toc = document.getElementById('TOC');
+            if (!toc) {
+                return;
+            }
+
+            const persistentKey = 'tocLockedState';
+            let isLocked = localStorage.getItem(persistentKey) === '1';
+            let isPeekOpen = false;
+
+            const content = document.createElement('div');
+            content.className = 'doc-content';
+
+            const toMove = [];
+            Array.from(document.body.children).forEach(function (el) {
+                if (el.id !== 'TOC') {
+                    toMove.push(el);
+                }
+            });
+            toMove.forEach(function (el) {
+                content.appendChild(el);
+            });
+            document.body.appendChild(content);
+
+            const controls = document.createElement('div');
+            controls.id = 'toc-controls';
+
+            const menuBtn = document.createElement('button');
+            menuBtn.className = 'toc-btn';
+            menuBtn.type = 'button';
+            menuBtn.textContent = 'TOC';
+            menuBtn.setAttribute('aria-label', 'Show or hide table of contents');
+
+            const lockBtn = document.createElement('button');
+            lockBtn.className = 'toc-btn';
+            lockBtn.type = 'button';
+            lockBtn.textContent = 'Lock';
+            lockBtn.setAttribute('aria-label', 'Lock table of contents open');
+
+            controls.appendChild(menuBtn);
+            controls.appendChild(lockBtn);
+            document.body.appendChild(controls);
+
+            const edgeHit = document.createElement('div');
+            edgeHit.id = 'toc-edge-hit';
+            edgeHit.setAttribute('aria-hidden', 'true');
+            document.body.appendChild(edgeHit);
+
+            function applyState() {
+                document.body.classList.toggle('toc-locked', isLocked);
+                document.body.classList.toggle('toc-peek', !isLocked && isPeekOpen);
+                lockBtn.classList.toggle('is-active', isLocked);
+                lockBtn.textContent = isLocked ? 'Unlock' : 'Lock';
+                menuBtn.textContent = isLocked ? 'TOC' : (isPeekOpen ? 'Hide' : 'TOC');
+            }
+
+            function setLocked(nextLocked) {
+                isLocked = nextLocked;
+                if (isLocked) {
+                    isPeekOpen = false;
+                    localStorage.setItem(persistentKey, '1');
+                } else {
+                    localStorage.setItem(persistentKey, '0');
+                }
+                applyState();
+            }
+
+            menuBtn.addEventListener('click', function () {
+                if (isLocked) {
+                    return;
+                }
+                isPeekOpen = !isPeekOpen;
+                applyState();
+            });
+
+            lockBtn.addEventListener('click', function () {
+                setLocked(!isLocked);
+            });
+
+            edgeHit.addEventListener('mouseenter', function () {
+                if (!isLocked) {
+                    isPeekOpen = true;
+                    applyState();
+                }
+            });
+
+            toc.addEventListener('mouseleave', function () {
+                if (!isLocked) {
+                    isPeekOpen = false;
+                    applyState();
+                }
+            });
+
+            document.addEventListener('keydown', function (e) {
+                if (e.key === 'Escape') {
+                    if (isLocked) {
+                        setLocked(false);
+                    } else if (isPeekOpen) {
+                        isPeekOpen = false;
+                        applyState();
+                    }
+                }
+            });
+
+            applyState();
+        });
+    </script>
 </head>
+
 <body>
-<nav id="TOC" role="doc-toc">
-<ul>
-<li><a
-href="#good-and-questionable-practices-of-quantitative-data-analysis"
-id="toc-good-and-questionable-practices-of-quantitative-data-analysis">GOOD
-AND QUESTIONABLE PRACTICES OF QUANTITATIVE DATA ANALYSIS</a>
-<ul>
-<li><a href="#week-1---introduction" id="toc-week-1---introduction">🗓️
-Week 1 - INTRODUCTION</a>
-<ul>
-<li><a href="#course-slides" id="toc-course-slides">Course
-slides</a></li>
-<li><a href="#your-homework-for-week-2-february-23"
-id="toc-your-homework-for-week-2-february-23">📝Your homework for Week 2
-(February 23)</a></li>
-<li><a href="#prepare-for-next-class-install-r-and-r-studio"
-id="toc-prepare-for-next-class-install-r-and-r-studio">❗Prepare for
-next class: install R and R Studio</a></li>
-</ul></li>
-<li><a href="#installing-r-and-rstudio-setup-guide"
-id="toc-installing-r-and-rstudio-setup-guide">Installing R and RStudio
-setup guide</a>
-<ul>
-<li><a href="#install-r-first" id="toc-install-r-first">1️⃣ Install R
-(First!)</a></li>
-<li><a href="#windows-installation"
-id="toc-windows-installation">Windows Installation</a></li>
-<li><a href="#macos-installation" id="toc-macos-installation">macOS
-Installation</a></li>
-<li><a href="#install-rstudio-desktop"
-id="toc-install-rstudio-desktop">2️⃣ Install RStudio Desktop</a></li>
-<li><a href="#test-your-installation" id="toc-test-your-installation">3️⃣
-Test Your Installation</a></li>
-<li><a href="#recommended-settings-optional-but-helpful"
-id="toc-recommended-settings-optional-but-helpful">4️⃣ Recommended
-Settings (Optional but Helpful)</a></li>
-</ul></li>
-<li><a href="#optional-but-recommended-install-required-packages"
-id="toc-optional-but-recommended-install-required-packages">5️⃣ (Optional
-but Recommended) Install Required Packages</a></li>
-<li><a href="#if-you-encounter-problems"
-id="toc-if-you-encounter-problems">6️⃣ If You Encounter Problems</a></li>
-</ul></li>
-</ul>
-</nav>
-<h1
-id="good-and-questionable-practices-of-quantitative-data-analysis">GOOD
-AND QUESTIONABLE PRACTICES OF QUANTITATIVE DATA ANALYSIS</h1>
-<p>[constantly updated]</p>
-<p><a
-href="https://unicorvinus-my.sharepoint.com/:x:/g/personal/bence_sagvari_uni-corvinus_hu/IQCsEJL7m43ARLxLFgZErgB2ASclNgnipkZ1YWllG4Ozgg0?e=w8eyia"><strong>Link
-to the course calendar (Excel table)</strong></a> <small>(Add 1 or 0 to
-the table based on your availability)</small></p>
-<h2 id="week-1---introduction">🗓️ Week 1 - INTRODUCTION</h2>
-<h3 id="course-slides">Course slides</h3>
-<p>📄<a
-href="https://tkmtahu-my.sharepoint.com/:b:/g/personal/sagvari_bence_tk_hu/IQDazpchI6xkRL6P08zFAmKHAQGp2nm9hrspf-gRK0Hhapo?e=Gpg36j">Intro
-slides (pdf)</a></p>
-<h3 id="your-homework-for-week-2-february-23">📝Your homework for Week 2
-(February 23)</h3>
-<p>Using this Miro board please answer three simple questions: 1. Which
-research methods and underlying theories interest you the most?<br />
-2. What specific tools and software would you like to learn about?<br />
-3. What practical applications, or research use cases, could we explore
-in more depth during the semester?</p>
-<p><strong>Use this Miro board to answer these questions.</strong>
-Simply grab a postit on the left, move it to the appropriate block, and
-type your ideas. 🔗 <a
-href="https://miro.com/app/board/uXjVGAbRFg4=/?share_link_id=445241015989">Course
-expectations and your “wish-list”</a> [Password:
-<strong>data2026</strong>]</p>
-<h3 id="prepare-for-next-class-install-r-and-r-studio">❗Prepare for
-next class: install R and R Studio</h3>
-<p><a
-href="https://tkmtahu-my.sharepoint.com/:u:/g/personal/sagvari_bence_tk_hu/IQAgx4fpsVk-RIAX3pVzSn7gAQqqn4wohahkWUE20AvMXIk?e=5pdfYn">Check
-this quick installation manual</a></p>
-<details>
-<summary>
-How to install R and R studio?
-</summary>
-<h2 id="installing-r-and-rstudio-setup-guide">Installing R and RStudio
-setup guide</h2>
-<p>You need to install:</p>
-<ul>
-<li><strong>R</strong> (the statistical computing engine)</li>
-<li><strong>RStudio Desktop</strong> (the user-friendly interface for
-R)</li>
-</ul>
-<hr />
-<h3 id="install-r-first">1️⃣ Install R (First!)</h3>
-<p>R must be installed <strong>before</strong> installing RStudio.</p>
-<p>Official R download page:<br />
-<a
-href="https://cran.r-project.org/">https://cran.r-project.org/</a></p>
-<hr />
-<h3 id="windows-installation">Windows Installation</h3>
-<h4 id="step-1-download-r">Step 1: Download R</h4>
-<ol type="1">
-<li>Go to: <a
-href="https://cran.r-project.org/">https://cran.r-project.org/</a></li>
-<li>Click <strong>“Download R for Windows”</strong></li>
-<li>Click <strong>“base”</strong></li>
-<li>Click <strong>“Download R-x.x.x for Windows”</strong> (latest
-version)</li>
-<li>Run the downloaded <code>.exe</code> file</li>
-<li>Accept default settings during installation</li>
-</ol>
-<p>That’s it — R is now installed.</p>
-<hr />
-<h3 id="macos-installation">macOS Installation</h3>
-<h4 id="step-1-download-r-1">Step 1: Download R</h4>
-<ol type="1">
-<li>Go to: <a
-href="https://cran.r-project.org/">https://cran.r-project.org/</a></li>
-<li>Click <strong>“Download R for macOS”</strong></li>
-<li>Download the latest <code>.pkg</code> file</li>
-<li>Open the file and follow installation instructions</li>
-<li>Accept default settings</li>
-</ol>
-<p>💡 On newer Macs (Apple Silicon – M1/M2/M3), download the version
-marked for <strong>Apple Silicon (arm64)</strong> if available.</p>
-<hr />
-<h3 id="install-rstudio-desktop">2️⃣ Install RStudio Desktop</h3>
-<p>After R is installed, install RStudio.</p>
-<p>Official RStudio Download Page:<br />
-<a
-href="https://posit.co/download/rstudio-desktop/">https://posit.co/download/rstudio-desktop/</a>
-(RStudio is developed by Posit.)</p>
-<h4 id="windows-macos">Windows &amp; macOS</h4>
-<ol type="1">
-<li>Visit the link above</li>
-<li>Click <strong>“Download RStudio Desktop”</strong></li>
-<li>Choose the free <strong>RStudio Desktop (Open Source
-License)</strong></li>
-<li>Download the installer for your system</li>
-<li>Run the installer</li>
-<li>Accept default settings</li>
-</ol>
-<hr />
-<h3 id="test-your-installation">3️⃣ Test Your Installation</h3>
-<p>After installing:</p>
-<ol type="1">
-<li>Open <strong>RStudio</strong></li>
-<li>In the Console (bottom left panel), type:</li>
-</ol>
-<div class="sourceCode" id="cb1"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="dv">2</span> <span class="sc">+</span> <span class="dv">2</span></span></code></pre></div>
-<p>If you see:</p>
-<pre><code>[1] 4</code></pre>
-<p>🎉 Congratulations! Your installation works.</p>
-<hr />
-<h3 id="recommended-settings-optional-but-helpful">4️⃣ Recommended
-Settings (Optional but Helpful)</h3>
-<p>In RStudio:</p>
-<ul>
-<li>Go to <strong>Tools → Global Options</strong></li>
-<li>Under <em>General</em>, uncheck:
-<ul>
-<li>“Restore .RData into workspace at startup”</li>
-</ul></li>
-<li>Set:
-<ul>
-<li>“Save workspace to .RData on exit” → <strong>Never</strong></li>
-</ul></li>
-</ul>
-<p>This helps avoid common beginner mistakes.</p>
-<hr />
-<h2 id="optional-but-recommended-install-required-packages">5️⃣ (Optional
-but Recommended) Install Required Packages</h2>
-<p>If you want to prepare a bit by installing a few resources we’ll use,
-in RStudio Console, copy and paste:</p>
-<div class="sourceCode" id="cb3"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="fu">install.packages</span>(<span class="fu">c</span>(<span class="st">&quot;tidyverse&quot;</span>, <span class="st">&quot;data.table&quot;</span>, <span class="st">&quot;haven&quot;</span>, <span class="st">&quot;ggplot2&quot;</span>))</span></code></pre></div>
-<hr />
-<h2 id="if-you-encounter-problems">6️⃣ If You Encounter Problems</h2>
-<ul>
-<li>Restart your computer</li>
-<li>Make sure R was installed <strong>before</strong> RStudio</li>
-<li>If nothing helps, write me an email:
-Bence.sagvari@uni-corvinus.hu</li>
-<li>Or ask your classmates.😉</li>
-</ul>
-</details>
+    <nav id="TOC" role="doc-toc">
+        <ul>
+            <li><a href="#good-and-questionable-practices-of-quantitative-data-analysis"
+                    id="toc-good-and-questionable-practices-of-quantitative-data-analysis">GOOD
+                    AND QUESTIONABLE PRACTICES OF QUANTITATIVE DATA ANALYSIS</a>
+                <ul>
+                    <li><a href="#week-1---introduction" id="toc-week-1---introduction">🗓️
+                            Week 1 - INTRODUCTION</a></li>
+                    <li><a href="#installing-r-and-rstudio-setup-guide"
+                            id="toc-installing-r-and-rstudio-setup-guide">Installing R and RStudio
+                            setup guide</a></li>
+                    <li><a href="#optional-but-recommended-install-required-packages"
+                            id="toc-optional-but-recommended-install-required-packages">5️⃣ (Optional
+                            but Recommended) Install Required Packages</a></li>
+                    <li><a href="#if-you-encounter-problems" id="toc-if-you-encounter-problems">6️⃣ If You Encounter
+                            Problems</a></li>
+                </ul>
+            </li>
+        </ul>
+    </nav>
+    <h1 id="good-and-questionable-practices-of-quantitative-data-analysis">GOOD
+        AND QUESTIONABLE PRACTICES OF QUANTITATIVE DATA ANALYSIS</h1>
+    <p>[constantly updated]</p>
+    <p><a
+            href="https://unicorvinus-my.sharepoint.com/:x:/g/personal/bence_sagvari_uni-corvinus_hu/IQCsEJL7m43ARLxLFgZErgB2ASclNgnipkZ1YWllG4Ozgg0?e=w8eyia"><strong>Link
+                to the course calendar (Excel table)</strong></a> <small>(Add 1 or 0 to
+            the table based on your availability)</small></p>
+    <h2 id="week-1---introduction">🗓️ Week 1 - INTRODUCTION</h2>
+    <h3 id="course-slides">Course slides</h3>
+    <p>📄<a
+            href="https://tkmtahu-my.sharepoint.com/:b:/g/personal/sagvari_bence_tk_hu/IQDazpchI6xkRL6P08zFAmKHAQGp2nm9hrspf-gRK0Hhapo?e=Gpg36j">Intro
+            slides (pdf)</a></p>
+    <h3 id="your-homework-for-week-2-february-23">📝Your homework for Week 2
+        (February 23)</h3>
+    <p>Using this Miro board please answer three simple questions: 1. Which
+        research methods and underlying theories interest you the most?<br />
+        2. What specific tools and software would you like to learn about?<br />
+        3. What practical applications, or research use cases, could we explore
+        in more depth during the semester?</p>
+    <p><strong>Use this Miro board to answer these questions.</strong>
+        Simply grab a postit on the left, move it to the appropriate block, and
+        type your ideas. 🔗 <a href="https://miro.com/app/board/uXjVGAbRFg4=/?share_link_id=445241015989">Course
+            expectations and your “wish-list”</a> [Password:
+        <strong>data2026</strong>]
+    </p>
+    <h3 id="prepare-for-next-class-install-r-and-r-studio">❗Prepare for
+        next class: install R and R Studio</h3>
+    <details>
+        <summary>
+            How to install R and R studio? (Use the left arrow to expand)
+        </summary>
+        <h2 id="installing-r-and-rstudio-setup-guide">Installing R and RStudio
+            setup guide</h2>
+        <p>You need to install:</p>
+        <ul>
+            <li><strong>R</strong> (the statistical computing engine)</li>
+            <li><strong>RStudio Desktop</strong> (the user-friendly interface for
+                R)</li>
+        </ul>
+        <hr />
+        <h3 id="install-r-first">1️⃣ Install R (First!)</h3>
+        <p>R must be installed <strong>before</strong> installing RStudio.</p>
+        <p>Official R download page:<br />
+            <a href="https://cran.r-project.org/">https://cran.r-project.org/</a>
+        </p>
+        <hr />
+        <h3 id="windows-installation">Windows Installation</h3>
+        <h4 id="step-1-download-r">Step 1: Download R</h4>
+        <ol type="1">
+            <li>Go to: <a href="https://cran.r-project.org/">https://cran.r-project.org/</a></li>
+            <li>Click <strong>“Download R for Windows”</strong></li>
+            <li>Click <strong>“base”</strong></li>
+            <li>Click <strong>“Download R-x.x.x for Windows”</strong> (latest
+                version)</li>
+            <li>Run the downloaded <code>.exe</code> file</li>
+            <li>Accept default settings during installation</li>
+        </ol>
+        <p>That’s it — R is now installed.</p>
+        <hr />
+        <h3 id="macos-installation">macOS Installation</h3>
+        <h4 id="step-1-download-r-1">Step 1: Download R</h4>
+        <ol type="1">
+            <li>Go to: <a href="https://cran.r-project.org/">https://cran.r-project.org/</a></li>
+            <li>Click <strong>“Download R for macOS”</strong></li>
+            <li>Download the latest <code>.pkg</code> file</li>
+            <li>Open the file and follow installation instructions</li>
+            <li>Accept default settings</li>
+        </ol>
+        <p>💡 On newer Macs (Apple Silicon – M1/M2/M3), download the version
+            marked for <strong>Apple Silicon (arm64)</strong> if available.</p>
+        <hr />
+        <h3 id="install-rstudio-desktop">2️⃣ Install RStudio Desktop</h3>
+        <p>After R is installed, install RStudio.</p>
+        <p>Official RStudio Download Page:<br />
+            <a href="https://posit.co/download/rstudio-desktop/">https://posit.co/download/rstudio-desktop/</a>
+            (RStudio is developed by Posit.)
+        </p>
+        <h4 id="windows-macos">Windows &amp; macOS</h4>
+        <ol type="1">
+            <li>Visit the link above</li>
+            <li>Click <strong>“Download RStudio Desktop”</strong></li>
+            <li>Choose the free <strong>RStudio Desktop (Open Source
+                    License)</strong></li>
+            <li>Download the installer for your system</li>
+            <li>Run the installer</li>
+            <li>Accept default settings</li>
+        </ol>
+        <hr />
+        <h3 id="test-your-installation">3️⃣ Test Your Installation</h3>
+        <p>After installing:</p>
+        <ol type="1">
+            <li>Open <strong>RStudio</strong></li>
+            <li>In the Console (bottom left panel), type:</li>
+        </ol>
+        <div class="sourceCode" id="cb1">
+            <pre
+                class="sourceCode r"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="dv">2</span> <span class="sc">+</span> <span class="dv">2</span></span></code></pre>
+        </div>
+        <p>If you see:</p>
+        <pre><code>[1] 4</code></pre>
+        <p>🎉 Congratulations! Your installation works.</p>
+        <hr />
+        <h3 id="recommended-settings-optional-but-helpful">4️⃣ Recommended
+            Settings (Optional but Helpful)</h3>
+        <p>In RStudio:</p>
+        <ul>
+            <li>Go to <strong>Tools → Global Options</strong></li>
+            <li>Under <em>General</em>, uncheck:
+                <ul>
+                    <li>“Restore .RData into workspace at startup”</li>
+                </ul>
+            </li>
+            <li>Set:
+                <ul>
+                    <li>“Save workspace to .RData on exit” → <strong>Never</strong></li>
+                </ul>
+            </li>
+        </ul>
+        <p>This helps avoid common beginner mistakes.</p>
+        <hr />
+        <h2 id="optional-but-recommended-install-required-packages">5️⃣ (Optional
+            but Recommended) Install Required Packages</h2>
+        <p>If you want to prepare a bit by installing a few basic resources
+            we’ll use in this course, in RStudio Console (bottom left scree), copy
+            and paste:</p>
+        <div class="sourceCode" id="cb3">
+            <pre
+                class="sourceCode r"><code class="sourceCode r"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="fu">install.packages</span>(<span class="fu">c</span>(<span class="st">&quot;tidyverse&quot;</span>, <span class="st">&quot;data.table&quot;</span>, <span class="st">&quot;haven&quot;</span>, <span class="st">&quot;ggplot2&quot;</span>))</span></code></pre>
+        </div>
+        <p>Then hit ENTER.</p>
+        <hr />
+        <h2 id="if-you-encounter-problems">6️⃣ If You Encounter Problems</h2>
+        <ul>
+            <li>Restart your computer</li>
+            <li>Make sure R was installed <strong>before</strong> RStudio</li>
+            <li>If nothing helps, write me an email:
+                Bence.sagvari@uni-corvinus.hu</li>
+            <li>Or ask your classmates.😉</li>
+        </ul>
+    </details>
 </body>
+
 </html>
