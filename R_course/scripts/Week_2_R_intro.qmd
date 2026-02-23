@@ -38,13 +38,17 @@ In the Files panel (bottom right), create these folders:
 ## Prerequisites - installing packages
 
 ```{r}
-options(repos = c(CRAN = "https://cran.rstudio.com"))
 #| eval: false
+options(repos = c(CRAN = "https://cran.rstudio.com"))
 
 install.packages("tidyverse")
-library(tidyverse)
-
 install.packages("here") # this will make your life much easier when working with folders
+install.packages("palmerpenguins")
+
+```
+
+```{r}
+library(tidyverse)
 library(here)
 here()
 
@@ -57,7 +61,6 @@ here()
 The Palmer Penguins dataset contains measurements and observations of three penguin species observed near Palmer Station in Antarctica. With 344 observations and realistic missing data.
 
 ```{r}
-#install.packages("palmerpenguins")
 library(palmerpenguins) 
 data(penguins)
 
@@ -212,11 +215,11 @@ We'll explore the dataset of US baby names. This dataset contains historical rec
 First, we need to install and load the `babynames` package:
 
 ```{r}
-# Install the package (run once)
 #| eval: false
 install.packages("babynames")
-# The hash symbol is for comments. Anything you put after it will not be executed. It is super-important to make your code professional. (You will remember what and why you did, work together with others, and make your research replicable and verifiable - that is becoming a basic requirement in academia.)
+```
 
+```{r}
 # Load the package
 library(babynames)
 
@@ -232,4 +235,12 @@ Let's save this data locally similar to the previous one:
 
 ```{r}
 write_csv(babynames, here("data","babynames.csv"))
+
+# Create a bar chart of the TOP10 names in the babynames dataset
+top10_names <- babynames %>%
+  group_by(name) %>%
+  summarise(total = sum(n)) %>%
+  arrange(desc(total)) %>%
+  slice_head(n = 10)
+
 ```
