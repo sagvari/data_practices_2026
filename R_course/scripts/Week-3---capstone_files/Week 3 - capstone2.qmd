@@ -1,0 +1,165 @@
+---
+title: "Week 3 - capstone 2"
+format: html
+editor: visual
+---
+
+```{r}
+library(dplyr)
+library(babynames)
+library(ggplot2)
+library(slider)
+library(viridis)
+
+# ------------------------------------------------------------
+# 0) Teaching idea: Define the phenomenon we want to detect
+# ------------------------------------------------------------
+# "Boom-and-bust" name:
+# - Has a clear peak (highest popularity at some year)
+# - Has weak presence BEFORE the peak (low average popularity)
+# - Has weak presence AFTER the peak (low average popularity)
+# - The peak is "sudden": much higher than before and after
+#
+# We'll operationalize this using:
+# - popularity = share of births within year & sex (not raw counts)
+# - 4-year moving average of that popularity
+# - a peak year (maximum moving average)
+# - a "before window" = 10 years prior to peak (average)
+# - an "after window"  = 10 years after peak (average)
+# - a peak-to-baseline ratio and a peak-to-after ratio
+# ------------------------------------------------------------
+
+# ------------------------------------------------------------
+# 1) Restrict to a period where media influence makes sense
+#    (You can change this; 1930–2000 is a good demo range)
+# ------------------------------------------------------------
+bn <- babynames %>%
+  filter(year >= 1950, year <= 2015)
+
+# ------------------------------------------------------------
+# 2) Compute totals from ALL names (denominator) and popularity share
+# ------------------------------------------------------------
+totals <- bn %>%
+  group_by(year, sex) %>%
+  summarise(total_births = sum(n), .groups = "drop")
+
+bn_share <- bn %>%
+  left_join(totals, by = c("year", "sex")) %>%
+  mutate(share = n / total_births) %>%  # share within sex-year
+  select(year, sex, name, n, share)
+
+# ------------------------------------------------------------
+# 3) Compute a 4-year moving average of share for each name & sex
+#    slider::slide_dbl(..., .before=1, .after=2) => 4-year window
+#    (year t-1, t, t+1, t+2). You can also use symmetric if you prefer.
+# ------------------------------------------------------------
+bn_ma <- bn_share %>%
+  group_by(sex, name) %>%
+  arrange(year) %>%
+  mutate(
+    share_ma4 = slide_dbl(
+      .x = share,
+      .f = ~ mean(.x, na.rm = TRUE),
+      .before = 1,
+      .after  = 2,
+      .complete = TRUE
+    )
+  ) %>%
+  ungroup()
+
+# ------------------------------------------------------------
+# 4) For each name, find its peak year (highest 4-year moving average)
+#    Then compare it to "before" and "after" baselines
+# ------------------------------------------------------------
+peak_table <- bn_ma %>%
+  filter(!is.na(share_ma4)) %>%
+  group_by(sex, name) %>%
+  # peak observation per name
+  slice_max(order_by = share_ma4, n = 1, with_ties = FALSE) %>%
+  transmute(
+    sex, name,
+    peak_year = year,
+    peak_ma4  = share_ma4
+  ) %>%
+  ungroup()
+
+# ------------------------------------------------------------
+# 5) Compute baseline levels before and after the peak
+#    We'll take 10-year windows: [peak-10, peak-1] and [peak+1, peak+10]
+#    (Feel free to change the window length)
+# ------------------------------------------------------------
+boom_bust <- peak_table %>%
+  # join back to the time series for each name to compute before/after means
+  left_join(bn_ma, by = c("sex", "name")) %>%
+  group_by(sex, name, peak_year, peak_ma4) %>%
+  summarise(
+    before_mean = mean(share_ma4[year >= peak_year - 10 & year <= peak_year - 1], na.rm = TRUE),
+    after_mean  = mean(share_ma4[year >= peak_year + 1  & year <= peak_year + 10], na.rm = TRUE),
+    before_max  = max(share_ma4[year >= peak_year - 10 & year <= peak_year - 1], na.rm = TRUE),
+    after_max   = max(share_ma4[year >= peak_year + 1  & year <= peak_year + 10], na.rm = TRUE),
+    n_years_before = sum(!is.na(share_ma4[year >= peak_year - 10 & year <= peak_year - 1])),
+    n_years_after  = sum(!is.na(share_ma4[year >= peak_year + 1  & year <= peak_year + 10])),
+    .groups = "drop"
+  ) %>%
+  # ----------------------------------------------------------
+  # 6) Define a "sudden peak" score
+  #    We want: peak >> before AND peak >> after
+  #    Also: before and after should be low (weak presence)
+  # ----------------------------------------------------------
+  mutate(
+    # add small epsilon to avoid division by zero
+    eps = 1e-10,
+    peak_over_before = peak_ma4 / (before_mean + eps),
+    peak_over_after  = peak_ma4 / (after_mean  + eps),
+    # "weak presence" requirement: before and after should be low relative to peak
+    # and also low in absolute terms (optional threshold)
+    weak_before = before_mean < 0.001,  # 0.1% share (adjust if needed)
+    weak_after  = after_mean  < 0.001,
+    # suddenness score: geometric mean of the two ratios (balanced)
+    suddenness_score = sqrt(peak_over_before * peak_over_after)
+  ) %>%
+  # Need enough data on both sides of peak (avoid edge effects)
+  filter(n_years_before >= 6, n_years_after >= 6) %>%
+  # Keep those that truly look like boom-bust
+  filter(weak_before, weak_after) %>%
+  arrange(desc(suddenness_score))
+
+# Top 10 boom-and-bust names
+top10 <- boom_bust %>%
+  slice_head(n = 10) %>%
+  mutate(
+    peak_pct = 100 * peak_ma4,
+    before_pct = 100 * before_mean,
+    after_pct = 100 * after_mean
+  ) %>%
+  select(sex, name, peak_year, peak_pct, before_pct, after_pct, suddenness_score)
+
+top10
+```
+
+Now visualize it:
+
+```{r}
+# Extract the names for plotting
+top_names <- top10 %>% select(sex, name, peak_year)
+
+plot_df <- bn_ma %>%
+  semi_join(top_names, by = c("sex", "name")) %>%
+  left_join(top_names, by = c("sex", "name")) %>%
+  mutate(share_ma4_pct = 100 * share_ma4)
+
+ggplot(plot_df, aes(x = year, y = share_ma4_pct, color = name)) +
+  geom_line(linewidth = 1) +
+  geom_vline(aes(xintercept = peak_year, color = name), linetype = "dashed", alpha = 0.5) +
+  facet_wrap(~ sex, ncol = 1, scales = "free_y",
+             labeller = labeller(sex = c(F = "Female names", M = "Male names"))) +
+    scale_color_viridis_d(option = "plasma") +
+  labs(
+    title = "Detected 'Boom-and-Bust' Baby Names (4-year Moving Average)",
+    subtitle = "Names that spike sharply and are weak both before and after (1950–2015)",
+    x = "Year",
+    y = "Share of births within sex-year (4-year MA, %)",
+    color = "Name"
+  ) +
+  theme_minimal(base_size = 12)
+```
