@@ -77,5 +77,3 @@ ggplot(ts, aes(x = year, y = share_pct, color = name)) +
   theme_minimal(base_size = 12) +
   theme(legend.position = "none")
 ```
-
-
