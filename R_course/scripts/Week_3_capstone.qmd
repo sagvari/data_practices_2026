@@ -1,0 +1,79 @@
+---
+title: "Week 3 - capstone"
+format: html
+editor: visual
+---
+
+```{r}
+library(dplyr)
+library(babynames)
+library(ggplot2)
+library(ggrepel)
+
+tracked_names <- tibble::tibble(
+  name = c("Mary", "Jennifer", "Lisa", "Emma", "James", "Michael", "John", "Aiden"),
+  sex  = c("F",    "F",        "F",   "F",   "M",     "M",       "M",    "M")
+)
+
+bn_20c <- babynames %>%
+  filter(year >= 1900, year <= 2000)
+
+totals <- bn_20c %>%
+  group_by(year, sex) %>%
+  summarise(total_births_sex_year = sum(n), .groups = "drop")
+
+ts <- bn_20c %>%
+  semi_join(tracked_names, by = c("name", "sex")) %>%
+  select(year, sex, name, n) %>%
+  left_join(totals, by = c("year", "sex")) %>%
+  mutate(
+    share = n / total_births_sex_year,
+    share_pct = 100 * share
+  ) %>%
+  arrange(sex, name, year)
+
+# Peak table (this is where peak_share_pct is created)
+peak_table <- ts %>%
+  group_by(name, sex) %>%
+  summarise(
+    peak_year = year[which.max(share_pct)],
+    peak_share_pct = max(share_pct),
+    .groups = "drop"
+  ) %>%
+  arrange(desc(peak_share_pct))
+
+peak_table
+
+# Labels for the last year (2000)
+labels_df <- ts %>%
+  group_by(sex, name) %>%
+  slice_max(order_by = year, n = 1, with_ties = FALSE) %>%
+  ungroup()
+
+ggplot(ts, aes(x = year, y = share_pct, color = name)) +
+  geom_line(linewidth = 1) +
+  facet_wrap(
+    ~ sex, ncol = 1, scales = "free_y",
+    labeller = labeller(sex = c(F = "Female names", M = "Male names"))
+  ) +
+  geom_text_repel(
+    data = labels_df,
+    aes(label = name),
+    direction = "y",
+    hjust = 0,
+    nudge_x = 2,
+    segment.alpha = 0.4,
+    show.legend = FALSE
+  ) +
+  scale_x_continuous(limits = c(1900, 2005)) +
+  labs(
+    title = "Baby Name Popularity as Social Trend (USA, 1900–2000)",
+    subtitle = "Share of births within each sex-year (denominator uses ALL names)",
+    x = "Year",
+    y = "Share of births within sex (%)",
+    color = "Name",
+    caption = "Data: babynames. share = n / total births in the same year and sex."
+  ) +
+  theme_minimal(base_size = 12) +
+  theme(legend.position = "none")
+```
