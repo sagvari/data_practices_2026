@@ -1,0 +1,398 @@
+---
+title: "Data Practices 2026: Introduction to Data Manipulation with dplyr"
+author: "Bence Ságvári"
+format: html
+execute:
+  warning: false
+  message: false
+---
+
+## Introduction to Data Practices
+
+In empirical research, raw data is rarely ready for statistical modeling. We spend a vast majority of our time cleaning, reshaping, and summarizing data. The `dplyr` package—part of the broader "Tidyverse" ecosystem—provides a grammar for these data manipulation tasks.
+
+In this tutorial, we will focus on reading code like a sentence using "pipes" and manipulating rows of a dataset.
+
+### 1. Setup and the Sandbox Dataset
+
+First, we need to load our tools and our data. If you have never used these packages before, you would first need to install them using `install.packages(c("dplyr", "babynames"))` in your console.
+
+```{r}
+#| label: setup
+
+# Load the necessary libraries
+library(dplyr) # be aware that dplyr is part of tidyverse, so if you already loaded tidyverse, you don't need dplyr separately...
+library(babynames)
+
+# Let's look at the structure of our dataset
+glimpse(babynames)
+
+```
+
+**Line-by-Line Explanation:**
+
+-   `library(...)`: This command loads a package into your current R session, making its functions available to you.
+-   `glimpse(...)`: A `dplyr` function that transposes the data, allowing you to see every column name, its data type (e.g., `<int>` for integer, `<chr>` for character), and the first few rows of data.
+
+### 2. The Pipe: Writing Code Like a Sentence
+
+Historically, R code was written from the inside out, nesting functions within functions (e.g., `leave_house(get_dressed(wake_up(me)))`). This is mathematically sound but cognitively difficult to read.
+
+In modern R (and standard practice in 2026), we use the native pipe operator `|>`. The pipe takes the object on its left and passes it as the *first argument* to the function on its right. It translates to the phrase **"and then"**.
+
+In some R code you might see `%>%` instead of `|>`. They are (more or less) the same, but `%\>%` was part of the magittr package (part of tidyverse).
+
+*Modern R formulation:* `me |> wake_up() |> get_dressed() |> leave_house()`
+
+Let's see this in action with actual data.
+
+### 3. Row Manipulation: Filtering
+
+The `filter()` function allows you to subset rows based on logical conditions (finding rows where a statement is `TRUE`).
+
+**The Goal:** Extract all records for the name "Marie" in the year 1920.
+
+```{r}
+#| label: filter-example
+
+marie_1920 <- babynames |> 
+  filter(name == "Marie", year == 1920)
+
+head(marie_1920)
+
+```
+
+**Line-by-Line Explanation:**
+
+-   `marie_1920 <-`: The assignment arrow `<-` stores the result of our code into a new object named `marie_1920` in your computer's memory.
+
+-   `babynames |>`: Take the `babynames` dataset **and then**...
+
+-   `filter(name == "Marie", year == 1920)`: Keep only the rows where the column `name` is exactly equal to "Marie" AND the column `year` is exactly equal to 1920.
+
+-   *Note on Syntax:* We use a double equals sign `==` for logical testing (asking "is it equal?"). A single equals sign `=` is used for assigning values. The comma `,` acts as an "AND" operator.
+
+-   `head(...)`: Prints the first 6 rows of our new object.
+
+### 4. Row Manipulation: Arranging (Sorting)
+
+The `arrange()` function orders the rows of a data frame by the values of selected columns.
+
+**The Goal:** Find the years where the name "Marie" was most popular by sorting the data.
+
+```{r}
+#| label: arrange-example
+
+marie_sorted <- babynames |>
+  filter(name == "Marie", sex == "F") |>
+  arrange(desc(n))
+
+head(marie_sorted)
+
+```
+
+**Line-by-Line Explanation:**
+
+-   `filter(...)`: We first isolate female babies named Marie.
+-   `arrange(desc(n))`: We order the rows by the column `n` (the count of babies). We wrap `n` in `desc()` to sort in **descending** order (highest to lowest). Without `desc()`, it would default to ascending order.
+
+### 5. Row Manipulation: Slicing
+
+Sometimes you don't want to filter by a condition, but rather select rows based on their physical position or statistical rank using `slice()`.
+
+The `slice_` family of functions allows us to extract rows based on their rank, their physical position in the dataset, or through random sampling. Let's explore the four other primary slicing functions using the `babynames` sandbox. \#### A. slice_max(): Finding the Top Values **The Goal:** Isolate the absolute top 3 most popular names for male babies in the year 2000.
+
+```{r}
+#| label: slice-example
+
+top_3_boys_2000 <- babynames |>
+  filter(year == 2000, sex == "M") |>
+  slice_max(order_by = n, n = 3)
+
+top_3_boys_2000
+
+```
+
+**Line-by-Line Explanation:**
+
+-   `slice_max(...)`: This is a highly efficient function that combines sorting and slicing.
+-   `order_by = n`: Tells the function to evaluate the "maximum" based on the count column `n`.
+-   `n = 3`: Tells the function to keep exactly 3 rows.
+
+#### B. slice_min(): Finding the Bottom Values
+
+**The Goal:** Find the least popular names for female babies in 1990.
+
+*Methodological Note:* The Social Security Administration (who provides this data) excludes names with fewer than 5 occurrences to protect privacy. Therefore, thousands of names are "tied" at exactly 5. We will use a special argument to handle these ties.
+
+```{r}
+#| label: slice-min-example
+
+bottom_3_girls_1990 <- babynames |>
+  filter(year == 1990, sex == "F") |>
+  slice_min(order_by = n, n = 3, with_ties = FALSE)
+
+bottom_3_girls_1990
+
+```
+
+**Line-by-Line Explanation:**
+
+-   slice_min(...): Isolates the rows with the lowest values in our target column.
+-   order_by = n: We evaluate the "minimum" based on the count column n.
+-   n = 3: We want to keep exactly 3 rows.
+-   with_ties = FALSE: Because thousands of names have an n of 5, slice_min() would normally return all of them. Setting this to FALSE forces the function to return exactly 3 rows, breaking ties based on their original order in the dataset.
+
+#### C. slice_head() and slice_tail(): Positional Slicing
+
+Sometimes you need to inspect the absolute beginning or absolute end of a dataset or subset, regardless of the values inside.
+
+**The Goal:** Extract the very first 4 and the very last 4 records for the year 1950 to inspect the data boundaries.
+
+```{r}
+#| label: slice-head-tail
+
+# Inspecting the top of the 1950 subset
+head_1950 <- babynames |>
+  filter(year == 1950) |>
+  slice_head(n = 4)
+
+# Inspecting the bottom of the 1950 subset
+tail_1950 <- babynames |>
+  filter(year == 1950) |>
+  slice_tail(n = 4)
+
+head_1950
+tail_1950
+```
+
+**Line-by-Line Explanation:**
+
+-   slice_head(n = 4): Simply extracts rows 1 through 4 of the filtered dataset.
+-   slice_tail(n = 4): Extracts the final 4 rows of the filtered dataset.
+
+#### D. slice_sample(): Random Subsetting
+
+In advanced data practices, you will frequently need to take random subsets of your data—perhaps to build a smaller training dataset for a machine learning model, or to run a quick pilot analysis when your main dataset is millions of rows long.
+
+**The Goal:** Randomly select 5 baby names from the year 2020.
+
+```{r}
+#| label: slice-sample-example
+
+# Set a random seed for reproducible research
+set.seed(2026)
+
+random_2020_names <- babynames |>
+  filter(year == 2020) |>
+  slice_sample(n = 5)
+
+random_2020_names
+```
+
+**Line-by-Line Explanation:**
+
+-   set.seed(2026): This is a crucial Base R function for reproducible research. Computers generate pseudo-random numbers. By setting a "seed" (in this case, the number 2026), we force the computer to start its random generation process from the exact same mathematical starting point every time. If you run this chunk 100 times, you will get the exact same 5 "random" names.
+-   slice_sample(n = 5): Randomly pulls 5 rows from the dataset.
+
+**Alternative**: You can also use proportions instead of explicit counts. For example, slice_sample(prop = 0.10) would randomly sample exactly 10% of your data.
+
+### `Methodological Trade-offs: dplyr vs. data.table vs. Base R`
+
+`It is important to understand why we choose specific tools:`
+
+1.  **`Readability (dplyr):`**`The pipe syntax makes dplyr highly readable and excellent for reproducible research. The trade-off is that it can be slightly slower on massive datasets (e.g., 50+ million rows) compared to lower-level packages.`
+2.  **`Speed (data.table):`**`For massive datasets, data.table is significantly faster and more memory-efficient. However, its syntax is terse and has a steeper learning curve for beginners.`
+3.  **`Dependencies (Base R):`**`Base R requires no external packages, meaning your code will almost certainly run 20 years from now without package version conflicts. However, base R syntax for complex manipulations is often difficult to read and debug.`
+
+`For the vast majority of social science and experimental data, the readability and safety of dplyr is the optimal choice.`
+
+This is a perfect next step. So far, we have mastered manipulating the *observations* (the rows) of our dataset. However, in advanced data practices—especially when preparing data for statistical modeling or machine learning—you will spend a significant amount of time doing "feature engineering." This involves selecting the right variables, cleaning up their names, organizing them logically, and mathematically transforming them into new variables (the columns).
+
+Let's dive into the four foundational `dplyr` verbs for column manipulation: `select()`, `rename()`, `relocate()`, and the powerhouse, `mutate()`.
+
+### 6. Column Manipulation: Subsetting with select()
+
+Often, datasets contain dozens or hundreds of variables, but your specific research question only requires three or four. The `select()` function allows you to keep or drop specific columns.
+
+**Methodological Trade-off:** Dropping unnecessary columns early in your script using `select()` is a highly recommended practice. It significantly reduces the memory footprint of your dataset, making subsequent operations much faster.
+
+**The Goal:** Isolate just the year, name, and count (`n`) columns. We will drop `sex` and `prop`.
+
+```{r}
+#| label: select-example
+
+# Approach 1: Explicitly name the columns you want to keep
+lean_babynames <- babynames |>
+  select(year, name, n)
+
+# Approach 2: Explicitly name the columns you want to DROP using a minus sign
+lean_babynames_alt <- babynames |>
+  select(-sex, -prop)
+
+head(lean_babynames)
+```
+
+**Line-by-Line Explanation:**
+
+-   `select(year, name, n)`: Tells R to keep only these three columns, in this exact order.
+-   `select(-sex, -prop)`: The negative sign tells R to keep *everything except* `sex` and `prop`. This is often more efficient if you have 50 columns and only want to drop 2.
+
+### 7. Column Manipulation: Standardizing with rename()
+
+Clean, descriptive variable names are essential for reproducible research. The default names in a raw dataset are rarely publication-ready.
+
+**The Goal:** The column name `n` is a bit ambiguous. Let's rename it to `total_count`, and rename `prop` to `proportion` for ultimate clarity.
+
+```{r}
+#| label: rename-example
+
+renamed_babynames <- babynames |>
+  rename(
+    total_count = n, 
+    proportion = prop
+  )
+
+head(renamed_babynames)
+```
+
+**Line-by-Line Explanation:**
+
+-   `rename(...)`: The function to change column headers.
+-   `total_count = n`: **Crucial Syntax Note:** In `dplyr`, the syntax is always `new_name = old_name`. Beginners often flip this and cause an error. Think of it as assigning the old column's data into your new name.
+
+### 8. Column Manipulation: Organizing with relocate()
+
+When you look at your dataset, you usually want the most important identifier columns on the far left. The `relocate()` function allows you to move columns around without dropping any data.
+
+**The Goal:** Move the `name` column to be the very first column in the dataset, before `year`.
+
+```{r}
+#| label: relocate-example
+
+reordered_babynames <- babynames |>
+  relocate(name, .before = year)
+
+head(reordered_babynames)
+```
+
+**Line-by-Line Explanation:**
+
+-   `relocate(name)`: Tells R which column we want to move.
+-   `.before = year`: This is a "helper" argument. It specifies exactly where `name` should be placed. You can also use `.after = [column_name]`. If you don't specify `.before` or `.after`, `relocate()` defaults to moving the column to the absolute front (position 1).
+
+### 9. Column Manipulation: Feature Engineering with mutate()
+
+The `mutate()` function is arguably the most important verb in data manipulation. It allows you to create brand new columns based on mathematical operations applied to existing columns.
+
+**The Goal:** The `prop` column is a decimal (e.g., 0.07). Let's create a new column called `percentage` that multiplies the proportion by 100. Let's also create a logical (TRUE/FALSE) variable indicating if a name had more than 10,000 babies that year, which could be useful for a future regression model.
+
+Code snippet
+
+```{r}
+#| label: mutate-example
+
+engineered_babynames <- babynames |>
+  mutate(
+    percentage = prop * 100,
+    is_highly_popular = n > 10000
+  ) |>
+  relocate(percentage, is_highly_popular, .after = name) # Moving them so we can see them!
+
+head(engineered_babynames)
+```
+
+**Line-by-Line Explanation:**
+
+-   `mutate(...)`: The function to create or overwrite columns.
+-   `percentage = prop * 100`: Creates a new column named `percentage`. It goes row by row, taking the value in `prop`, multiplying it by 100, and storing the result.
+-   `is_highly_popular = n > 10000`: Creates a boolean (logical) column. R evaluates the statement "is `n` greater than 10,000?" and returns `TRUE` or `FALSE` for every single row.
+-   *Note:* By default, `mutate()` adds new columns to the absolute right side (the end) of your dataset. We used `relocate()` right after it so the new columns are visible when we print the `head()`.
+
+### Putting It All Together: Your Turn
+
+You now have a powerful toolkit. You can filter rows, sort data, slice the top results, select specific columns, and engineer new mathematical variables.
+
+**Your Challenge:** Try to write a single, contiguous pipeline (using `|>`) that does the following: 1. Takes the `babynames` dataset. 2. Filters for only male babies (`sex == "M"`). 3. Creates a new column using `mutate()` called `decade` (Hint: you can use `floor(year / 10) * 10` to mathematically calculate the decade). 4. Selects *only* the `name`, `decade`, and `n` columns. 5. Arranges the results by `n` in descending order.
+
+### 10. Moving beyond simple data manipulation: split, apply & combine - make 'real' analysis
+
+#### The Split-Apply-Combine Paradigm
+
+Before writing the code, it is vital to understand the theory. When we group and summarize data, we are asking the computer to: 1. **Split** the dataset into distinct, invisible groups based on a categorical variable (e.g., splitting by `year`). 2. **Apply** a mathematical function to each group independently (e.g., calculating the sum or the mean). 3. **Combine** the results back into a brand new, highly condensed summary table.
+
+### 11. Global Aggregation with summarize()
+
+The `summarize()` function (or `summarise()`, depending on your spelling preference) collapses your dataset down to a single row based on the math you ask it to perform.
+
+**The Goal:** Calculate the absolute total number of babies recorded in the entire `babynames` dataset across all years.
+
+```{r}
+#\| label: summarize-global
+
+total_babies_ever <- babynames |> 
+  summarize( total_records = n(), # Counts the number of rows 
+             total_babies = sum(n) ) # Sums the values in the 'n' column
+
+total_babies_ever
+```
+
+**Line-by-Line Explanation:**
+
+-   summarize(...): The function that tells R we are condensing the data.
+
+-   total_records = n(): We create a new column called total_records. The n() function is a special dplyr tool that simply counts the number of rows.
+
+-   total_babies = sum(n): We create a new column called total_babies by taking the mathematical sum of the n column.
+
+Notice: Our dataset of nearly 2 million rows just became a dataset of exactly 1 row.
+
+### 13. Grouped Aggregation: group_by() + summarize()
+
+Summarizing the whole dataset is rarely what we want. We usually want statistics *by category*. We achieve this by piping our data through `group_by()` immediately before `summarize()`.
+
+**The Goal:** Calculate the total number of babies born *per year*.
+
+```{r}
+#| label: group-by-single
+
+babies_per_year <- babynames |>
+  group_by(year) |>
+  summarize(total_babies = sum(n))
+
+head(babies_per_year)
+```
+
+**Line-by-Line Explanation:**
+
+-   `group_by(year)`: This changes the internal metadata of the dataset. It doesn't change how the data looks, but it tells R: "For all future calculations, treat every unique year as its own isolated dataset."
+
+-   `summarize(...)`: Because the data is now grouped by year, `summarize()` will output one row *per year*, rather than one row total.
+
+### 14. Advanced Aggregation: Multiple Groups and Metrics
+
+In your research, you will frequently need to calculate multiple summary statistics across intersecting categories (e.g., Control vs. Treatment across different Demographic groups).
+
+The Goal: For every year and every biological sex, calculate the total number of babies born AND find the longest name used in that specific group.
+
+```{r}
+#| label: group-by-multiple
+
+yearly_sex_summary <- babynames |>
+  group_by(year, sex) |>
+  summarize(
+    total_babies = sum(n),
+    longest_name_length = max(nchar(name)), 
+    .groups = "drop"
+  )
+
+head(yearly_sex_summary)
+```
+
+**Line-by-Line Explanation:**
+
+-   group_by(year, sex): We are now splitting the data into intersecting groups (e.g., 1880-Female, 1880-Male, 1881-Female...).
+
+-   longest_name_length = max(nchar(name)): We calculate the number of characters (nchar) for every name in that group, and then find the maximum (max) value.
+
+-   .groups = "drop": Crucial Methodological Best Practice. When you group by multiple variables, dplyr will peel off the last grouping variable after summarizing, but leave the rest of the dataset grouped. This invisible grouping frequently causes severe mathematical errors later in complex scripts. Explicitly dropping the groups guarantees your output is a clean, standard data frame ready for the next step.
