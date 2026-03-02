@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>🎓 Recommended_R_Courses</title>
+  <style>
+    /* Default styles provided by pandoc.
+    ** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+    */
+    code{white-space: pre-wrap;}
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: min(4vw, 1.5em);}
+    div.column{flex: auto; overflow-x: auto;}
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+    .display.math{display: block; text-align: center; margin: 0.5rem auto;}
+  </style>
+  <link rel="stylesheet" href="style.css" />
+  <script>
+  document.addEventListener('DOMContentLoaded', function() {
+      const toc = document.getElementById('TOC');
+      if (!toc) {
+          return;
+      }
+
+      const persistentKey = 'tocLockedState';
+      let isLocked = localStorage.getItem(persistentKey) === '1';
+      let isPeekOpen = false;
+
+      const content = document.createElement('div');
+      content.className = 'doc-content';
+
+      const toMove = [];
+      Array.from(document.body.children).forEach(function(el) {
+          if (el.id !== 'TOC') {
+              toMove.push(el);
+          }
+      });
+      toMove.forEach(function(el) {
+          content.appendChild(el);
+      });
+      document.body.appendChild(content);
+
+      const controls = document.createElement('div');
+      controls.id = 'toc-controls';
+
+      const menuBtn = document.createElement('button');
+      menuBtn.className = 'toc-btn';
+      menuBtn.type = 'button';
+      menuBtn.textContent = 'TOC';
+      menuBtn.setAttribute('aria-label', 'Show or hide table of contents');
+
+      const lockBtn = document.createElement('button');
+      lockBtn.className = 'toc-btn';
+      lockBtn.type = 'button';
+      lockBtn.textContent = 'Lock';
+      lockBtn.setAttribute('aria-label', 'Lock table of contents open');
+
+      controls.appendChild(menuBtn);
+      controls.appendChild(lockBtn);
+      document.body.appendChild(controls);
+
+      const edgeHit = document.createElement('div');
+      edgeHit.id = 'toc-edge-hit';
+      edgeHit.setAttribute('aria-hidden', 'true');
+      document.body.appendChild(edgeHit);
+
+      function applyState() {
+          document.body.classList.toggle('toc-locked', isLocked);
+          document.body.classList.toggle('toc-peek', !isLocked && isPeekOpen);
+          lockBtn.classList.toggle('is-active', isLocked);
+          lockBtn.textContent = isLocked ? 'Unlock' : 'Lock';
+          menuBtn.textContent = isLocked ? 'TOC' : (isPeekOpen ? 'Hide' : 'TOC');
+      }
+
+      function setLocked(nextLocked) {
+          isLocked = nextLocked;
+          if (isLocked) {
+              isPeekOpen = false;
+              localStorage.setItem(persistentKey, '1');
+          } else {
+              localStorage.setItem(persistentKey, '0');
+          }
+          applyState();
+      }
+
+      menuBtn.addEventListener('click', function() {
+          if (isLocked) {
+              return;
+          }
+          isPeekOpen = !isPeekOpen;
+          applyState();
+      });
+
+      lockBtn.addEventListener('click', function() {
+          setLocked(!isLocked);
+      });
+
+      edgeHit.addEventListener('mouseenter', function() {
+          if (!isLocked) {
+              isPeekOpen = true;
+              applyState();
+          }
+      });
+
+      toc.addEventListener('mouseleave', function() {
+          if (!isLocked) {
+              isPeekOpen = false;
+              applyState();
+          }
+      });
+
+      document.addEventListener('keydown', function(e) {
+          if (e.key === 'Escape') {
+              if (isLocked) {
+                  setLocked(false);
+              } else if (isPeekOpen) {
+                  isPeekOpen = false;
+                  applyState();
+              }
+          }
+      });
+
+      applyState();
+  });
+  </script>
+</head>
+<body>
+<nav id="TOC" role="doc-toc">
+<ul>
+<li><a href="#recommended-r-courses-beginner-to-intermediate-2026"
+id="toc-recommended-r-courses-beginner-to-intermediate-2026">🎓
+Recommended R Courses: Beginner to Intermediate (2026)</a></li>
+<li><a href="#summary-of-r-learning-paths-2026"
+id="toc-summary-of-r-learning-paths-2026">📊 Summary of R Learning Paths
+(2026)</a></li>
+</ul>
+</nav>
+<p>As your R Coding and Data Analysis Tutor, I have curated a selection
+of high-quality, self-paced courses specifically aligned with the
+rigorous standards of a PhD-level curriculum in 2026.</p>
+<p>For doctoral students, the goal is not just “learning to code,” but
+mastering <strong>reproducible research</strong> and <strong>functional
+programming</strong>. The following courses prioritize the
+<strong>Tidyverse</strong> ecosystem, which is the industry and academic
+standard for modern data science in R.</p>
+<hr />
+<h2 id="recommended-r-courses-beginner-to-intermediate-2026">🎓
+Recommended R Courses: Beginner to Intermediate (2026)</h2>
+<h3 id="the-whole-game-foundation">1. The “Whole Game” Foundation</h3>
+<ul>
+<li><strong>Course:</strong> <a href="https://r4ds.hadley.nz/">R for
+Data Science (2e)</a></li>
+<li><strong>Provider:</strong> Posit (formerly RStudio) / Hadley Wickham
+&amp; Mine Çetinkaya-Rundel</li>
+<li><strong>Level:</strong> Beginner to Intermediate</li>
+<li><strong>Key Focus:</strong> The complete data science lifecycle:
+Import (<code>readr</code>), Tidy (<code>tidyr</code>), Transform
+(<code>dplyr</code>), Visualize (<code>ggplot2</code>), and Model.</li>
+<li><strong>Why it’s PhD-ready:</strong> This is the definitive “bible”
+of the Tidyverse. It teaches you to think about data structures (tidy
+data) before writing a single line of analysis, which is crucial for
+complex dissertation datasets.</li>
+</ul>
+<h3 id="specialized-data-wrangling-cleaning">2. Specialized Data
+Wrangling &amp; Cleaning</h3>
+<ul>
+<li><strong>Course:</strong> <a
+href="https://pll.harvard.edu/course/data-science-wrangling">Data
+Science: Wrangling</a></li>
+<li><strong>Provider:</strong> Harvard University (via edX)</li>
+<li><strong>Level:</strong> Beginner/Intermediate</li>
+<li><strong>Key Focus:</strong> Beyond basic filtering; covers string
+processing (<code>stringr</code>), HTML parsing, and working with
+dates/times (<code>lubridate</code>).</li>
+<li><strong>Why it’s PhD-ready:</strong> Research data is rarely
+“clean.” This course provides the technical precision needed to handle
+messy, real-world data sources like web-scraped tables or inconsistent
+CSV exports.</li>
+</ul>
+<h3 id="advanced-tidyverse-statistical-modeling">3. Advanced Tidyverse
+&amp; Statistical Modeling</h3>
+<ul>
+<li><strong>Course:</strong> <a
+href="https://www.coursera.org/specializations/tidyverse-data-science-r">Tidyverse
+Skills for Data Science Specialization</a></li>
+<li><strong>Provider:</strong> Johns Hopkins University (via
+Coursera)</li>
+<li><strong>Level:</strong> Intermediate</li>
+<li><strong>Key Focus:</strong> Functional programming with
+<code>purrr</code>, sophisticated mapping, and nesting data frames for
+multi-model workflows.</li>
+<li><strong>Why it’s PhD-ready:</strong> It moves from simple scripts to
+<strong>functional workflows</strong>. Learning to use
+<code>purrr::map()</code> to run the same statistical test across 50
+different subgroups is a hallmark of efficient PhD-level coding.</li>
+</ul>
+<h3 id="interactive-visualization-communication">4. Interactive
+Visualization &amp; Communication</h3>
+<ul>
+<li><strong>Course:</strong> <a
+href="https://www.datacamp.com/courses/introduction-to-data-visualization-with-ggplot2">Data
+Visualization with ggplot2</a></li>
+<li><strong>Provider:</strong> DataCamp</li>
+<li><strong>Level:</strong> Intermediate</li>
+<li><strong>Key Focus:</strong> The “Grammar of Graphics,” layering,
+scales, and publication-quality themes.</li>
+<li><strong>Why it’s PhD-ready:</strong> Doctoral work requires figures
+that are not only accurate but also aesthetically suitable for
+high-impact journals. This course covers the nuances of
+<code>geom</code> objects and coordinate systems.</li>
+</ul>
+<h3 id="interactive-self-correction-in-console">5. Interactive
+Self-Correction (In-Console)</h3>
+<ul>
+<li><strong>Course:</strong> <a href="https://swirlstats.com/">Swirl (R
+Programming Alt-Text)</a></li>
+<li><strong>Provider:</strong> Swirl Development Team</li>
+<li><strong>Level:</strong> Beginner</li>
+<li><strong>Key Focus:</strong> Interactive lessons that run directly
+inside your RStudio console.</li>
+<li><strong>Why it’s PhD-ready:</strong> Excellent for a quick
+“refresher” on base R syntax vs. Tidyverse logic. It allows students to
+troubleshoot in the environment they will actually use for their
+research.</li>
+</ul>
+<hr />
+<h3 id="the-built-in-tutorial-pane-learnr">6. 🛠️ The Built-in Tutorial
+Pane (learnr)</h3>
+<p>In addition to external courses, RStudio (v1.3 and later) includes a
+powerful, built-in <strong>Tutorial Pane</strong> powered by the
+<code>learnr</code> package. This is an excellent resource for PhD
+students who want to practice coding in the same environment where they
+perform their research.</p>
+<p>The <code>learnr</code> package turns R Markdown documents into
+interactive tutorials that include narrative, videos, and—most
+importantly—<strong>live code chunks</strong> where students can write
+and test R code directly.</p>
+<h3 id="how-to-access-it">How to Access It?</h3>
+<ol type="1">
+<li><strong>Locate the Pane:</strong> In the default RStudio layout,
+look at the <strong>top-right quadrant</strong> (sharing space with
+Environment and History). You will see a tab labeled
+<strong>Tutorial</strong>.</li>
+<li><strong>Install the Package:</strong> If you don’t see any tutorials
+listed, run <code>install.packages("learnr")</code> in your
+console.</li>
+<li><strong>Start Learning:</strong> Click the “Start Tutorial” button
+next to any of the built-in topics. This will launch an interactive
+session inside the pane or in a separate window.</li>
+</ol>
+<h3 id="why-its-effective-for-phd-level-learning">Why it’s Effective for
+PhD Level Learning</h3>
+<ul>
+<li><strong>Zero Configuration:</strong> You don’t need to switch
+between a web browser and RStudio; they can “tinker” with the code in
+the tutorial and immediately apply it to their own scripts in the source
+editor.</li>
+<li><strong>Progress Tracking:</strong> <code>learnr</code>
+automatically saves progress. If you close RStudio and return later,
+they can pick up exactly where they left off in a multi-step data
+cleaning exercise.</li>
+<li><strong>Sandbox Environment:</strong> The code chunks in these
+tutorials are “sandboxed,” meaning you can experiment with complex
+<code>dplyr</code> pipes without accidentally overwriting their actual
+research data.</li>
+</ul>
+<h3 id="comparison-of-learning-paths">Comparison of Learning Paths</h3>
+<p>To facilitate a quick comparison for your students, I have
+synthesized all six learning paths into a single reference table. This
+overview highlights the unique pedagogical value of each option, ranging
+from foundational theory to hands-on IDE integration.</p>
+<h2 id="summary-of-r-learning-paths-2026">📊 Summary of R Learning Paths
+(2026)</h2>
+<table style="width:100%;">
+<colgroup>
+<col style="width: 16%" />
+<col style="width: 16%" />
+<col style="width: 16%" />
+<col style="width: 16%" />
+<col style="width: 16%" />
+<col style="width: 16%" />
+</colgroup>
+<thead>
+<tr>
+<th>#</th>
+<th>Learning Path</th>
+<th>Primary Provider</th>
+<th>Level</th>
+<th>PhD-Level Strength</th>
+<th>Delivery Method</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>1</strong></td>
+<td><strong>R for Data Science (2e)</strong></td>
+<td>Posit / Wickham</td>
+<td>Beg - Int</td>
+<td>Mastering the “Tidy Data” mental model for complex datasets.</td>
+<td>Open-access Book / Code-along</td>
+</tr>
+<tr>
+<td><strong>2</strong></td>
+<td><strong>Data Science: Wrangling</strong></td>
+<td>Harvard (edX)</td>
+<td>Beg - Int</td>
+<td>Handling “messy” real-world data (Strings, Regex,
+Web-scraping).</td>
+<td>Video Lectures / Projects</td>
+</tr>
+<tr>
+<td><strong>3</strong></td>
+<td><strong>Tidyverse Skills Spec.</strong></td>
+<td>Johns Hopkins</td>
+<td>Intermediate</td>
+<td>Scalable workflows using functional programming
+(<code>purrr</code>).</td>
+<td>Academic Specialization</td>
+</tr>
+<tr>
+<td><strong>4</strong></td>
+<td><strong>Data Viz with ggplot2</strong></td>
+<td>DataCamp</td>
+<td>Intermediate</td>
+<td>Creating publication-quality figures with the “Grammar of
+Graphics.”</td>
+<td>Browser-based Coding</td>
+</tr>
+<tr>
+<td><strong>5</strong></td>
+<td><strong>Swirl Stats</strong></td>
+<td>Swirl Team</td>
+<td>Beginner</td>
+<td>Rapid-fire syntax reinforcement within the R console.</td>
+<td>Interactive R Console</td>
+</tr>
+<tr>
+<td><strong>6</strong></td>
+<td><strong>Built-in <code>learnr</code> Pane</strong></td>
+<td>RStudio / Posit</td>
+<td>All Levels</td>
+<td>Zero-friction, sandboxed practice inside the actual research
+IDE.</td>
+<td>Integrated RStudio Tutorial</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="how-to-guide-your-students">🔍 How to Guide Your Students</h3>
+<p>For a PhD-level course, I recommend a <strong>hybrid
+approach</strong>:</p>
+<ol type="1">
+<li><strong>The Foundation:</strong> Use <em>R for Data Science</em> as
+the primary theoretical text. Any time you are stuck, want to see the
+explanation behind a function, or want to explore your
+possibilities.</li>
+<li><strong>The Lab:</strong> Use the <strong>Built-in
+<code>learnr</code> tutorials</strong> for the first few weeks to
+confidently execute basic <code>dplyr</code> pipes without errors.</li>
+<li><strong>The Polish:</strong> Go to the other resources based on your
+individual needs.</li>
+</ol>
+</body>
+</html>
