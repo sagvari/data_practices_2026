@@ -309,6 +309,41 @@ head(engineered_babynames)
 -   `is_highly_popular = n > 10000`: Creates a boolean (logical) column. R evaluates the statement "is `n` greater than 10,000?" and returns `TRUE` or `FALSE` for every single row.
 -   *Note:* By default, `mutate()` adds new columns to the absolute right side (the end) of your dataset. We used `relocate()` right after it so the new columns are visible when we print the `head()`.
 
+## Analysis: Highly Popular Baby Names by Decade (1880–2020)
+
+**Let's move one step further...** This script identifies names that achieved significant popularity thresholds in the United States over a 140-year period, using the babynames dataset from the U.S. Social Security Administration. A name is classified as "highly popular" if it was given to more than 10,000 babies in a single year. The analysis aggregates these names by decade and sex, reporting how frequently each name crossed the threshold, its average birth count, and its single-year peak — allowing comparison of dominant names across different eras of American naming history.
+
+```{r}
+popular_by_decade <- engineered_babynames |>
+  filter(is_highly_popular == TRUE) |>           # Keep only names exceeding 10,000 births
+  mutate(decade = floor(year / 10) * 10) |>      # Assign each year to its decade
+  filter(decade >= 1880, decade <= 2020) |>       # Restrict to target time window
+  group_by(decade, sex, name) |>
+  summarise(
+    times_highly_popular = n(),                   # Years within decade above threshold
+    avg_n                = mean(n),               # Average births across those years
+    peak_n               = max(n),                # Single highest year within decade
+    .groups = "drop"
+  ) |>
+  arrange(decade, sex, desc(peak_n))              # Most dominant names first
+
+popular_by_decade 
+```
+
+### What each step does?
+
+-   `filter(is_highly_popular == TRUE)` — keeps only rows where a name exceeded 10,000 births in a given year.
+
+-   `mutate(decade = floor(year / 10) * 10)` — converts a year into its decade. floor(1921 / 10) \* 10 gives 1920, floor(1987 / 10) \* 10 gives 1980, and so on.
+
+-   `group_by(decade, sex, name)` — groups so the summary is computed per name per decade, split by sex.
+
+-   `times_highly_popular = n()`— counts how many individual years within that decade the name cleared the 10,000 threshold. A name could score anywhere from 1 to 10.
+
+-   `avg_n and peak_n` — give you a sense of the scale of popularity, not just whether the threshold was crossed.
+
+-   `arrange(decade, sex, desc(peak_n))`— within each decade and sex, the most dominant names appear first.
+
 ### Putting It All Together: Your Turn
 
 You now have a powerful toolkit. You can filter rows, sort data, slice the top results, select specific columns, and engineer new mathematical variables.

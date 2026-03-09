@@ -454,6 +454,53 @@ $ prop &lt;dbl&gt; 0.07238359, 0.02667896, 0.02052149, 0.01986579, 0.01788843, 0
 <li><em>Note:</em> By default, <code>mutate()</code> adds new columns to the absolute right side (the end) of your dataset. We used <code>relocate()</code> right after it so the new columns are visible when we print the <code>head()</code>.</li>
 </ul>
 </section>
+</section>
+<section id="analysis-highly-popular-baby-names-by-decade-18802020" class="level2">
+<h2 class="anchored" data-anchor-id="analysis-highly-popular-baby-names-by-decade-18802020">Analysis: Highly Popular Baby Names by Decade (1880–2020)</h2>
+<p><strong>Let’s move one step further…</strong> This script identifies names that achieved significant popularity thresholds in the United States over a 140-year period, using the babynames dataset from the U.S. Social Security Administration. A name is classified as “highly popular” if it was given to more than 10,000 babies in a single year. The analysis aggregates these names by decade and sex, reporting how frequently each name crossed the threshold, its average birth count, and its single-year peak — allowing comparison of dominant names across different eras of American naming history.</p>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb25"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb25-1"><a href="#cb25-1" aria-hidden="true" tabindex="-1"></a>popular_by_decade <span class="ot">&lt;-</span> engineered_babynames <span class="sc">|&gt;</span></span>
+<span id="cb25-2"><a href="#cb25-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">filter</span>(is_highly_popular <span class="sc">==</span> <span class="cn">TRUE</span>) <span class="sc">|&gt;</span>           <span class="co"># Keep only names exceeding 10,000 births</span></span>
+<span id="cb25-3"><a href="#cb25-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">decade =</span> <span class="fu">floor</span>(year <span class="sc">/</span> <span class="dv">10</span>) <span class="sc">*</span> <span class="dv">10</span>) <span class="sc">|&gt;</span>      <span class="co"># Assign each year to its decade</span></span>
+<span id="cb25-4"><a href="#cb25-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">filter</span>(decade <span class="sc">&gt;=</span> <span class="dv">1880</span>, decade <span class="sc">&lt;=</span> <span class="dv">2020</span>) <span class="sc">|&gt;</span>       <span class="co"># Restrict to target time window</span></span>
+<span id="cb25-5"><a href="#cb25-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">group_by</span>(decade, sex, name) <span class="sc">|&gt;</span></span>
+<span id="cb25-6"><a href="#cb25-6" aria-hidden="true" tabindex="-1"></a>  <span class="fu">summarise</span>(</span>
+<span id="cb25-7"><a href="#cb25-7" aria-hidden="true" tabindex="-1"></a>    <span class="at">times_highly_popular =</span> <span class="fu">n</span>(),                   <span class="co"># Years within decade above threshold</span></span>
+<span id="cb25-8"><a href="#cb25-8" aria-hidden="true" tabindex="-1"></a>    <span class="at">avg_n                =</span> <span class="fu">mean</span>(n),               <span class="co"># Average births across those years</span></span>
+<span id="cb25-9"><a href="#cb25-9" aria-hidden="true" tabindex="-1"></a>    <span class="at">peak_n               =</span> <span class="fu">max</span>(n),                <span class="co"># Single highest year within decade</span></span>
+<span id="cb25-10"><a href="#cb25-10" aria-hidden="true" tabindex="-1"></a>    <span class="at">.groups =</span> <span class="st">"drop"</span></span>
+<span id="cb25-11"><a href="#cb25-11" aria-hidden="true" tabindex="-1"></a>  ) <span class="sc">|&gt;</span></span>
+<span id="cb25-12"><a href="#cb25-12" aria-hidden="true" tabindex="-1"></a>  <span class="fu">arrange</span>(decade, sex, <span class="fu">desc</span>(peak_n))              <span class="co"># Most dominant names first</span></span>
+<span id="cb25-13"><a href="#cb25-13" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb25-14"><a href="#cb25-14" aria-hidden="true" tabindex="-1"></a>popular_by_decade </span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code># A tibble: 835 × 6
+   decade sex   name     times_highly_popular  avg_n peak_n
+    &lt;dbl&gt; &lt;chr&gt; &lt;chr&gt;                   &lt;int&gt;  &lt;dbl&gt;  &lt;int&gt;
+ 1   1880 F     Mary                        2 11701   11754
+ 2   1890 F     Mary                       10 13114.  14406
+ 3   1900 F     Mary                       10 16150.  19259
+ 4   1910 F     Mary                       10 47864.  67366
+ 5   1910 F     Helen                      10 24816.  36148
+ 6   1910 F     Dorothy                     8 23911.  32032
+ 7   1910 F     Margaret                    8 21466.  27140
+ 8   1910 F     Ruth                        8 19808.  25534
+ 9   1910 F     Mildred                     6 15558.  17300
+10   1910 F     Virginia                    5 13952.  16421
+# ℹ 825 more rows</code></pre>
+</div>
+</div>
+<section id="what-each-step-does" class="level3">
+<h3 class="anchored" data-anchor-id="what-each-step-does">What each step does?</h3>
+<ul>
+<li><p><code>filter(is_highly_popular == TRUE)</code> — keeps only rows where a name exceeded 10,000 births in a given year.</p></li>
+<li><p><code>mutate(decade = floor(year / 10) * 10)</code> — converts a year into its decade. floor(1921 / 10) * 10 gives 1920, floor(1987 / 10) * 10 gives 1980, and so on.</p></li>
+<li><p><code>group_by(decade, sex, name)</code> — groups so the summary is computed per name per decade, split by sex.</p></li>
+<li><p><code>times_highly_popular = n()</code>— counts how many individual years within that decade the name cleared the 10,000 threshold. A name could score anywhere from 1 to 10.</p></li>
+<li><p><code>avg_n and peak_n</code> — give you a sense of the scale of popularity, not just whether the threshold was crossed.</p></li>
+<li><p><code>arrange(decade, sex, desc(peak_n))</code>— within each decade and sex, the most dominant names appear first.</p></li>
+</ul>
+</section>
 <section id="putting-it-all-together-your-turn" class="level3">
 <h3 class="anchored" data-anchor-id="putting-it-all-together-your-turn">Putting It All Together: Your Turn</h3>
 <p>You now have a powerful toolkit. You can filter rows, sort data, slice the top results, select specific columns, and engineer new mathematical variables.</p>
@@ -471,13 +518,13 @@ $ prop &lt;dbl&gt; 0.07238359, 0.02667896, 0.02052149, 0.01986579, 0.01788843, 0
 <p>The <code>summarize()</code> function (or <code>summarise()</code>, depending on your spelling preference) collapses your dataset down to a single row based on the math you ask it to perform.</p>
 <p><strong>The Goal:</strong> Calculate the absolute total number of babies recorded in the entire <code>babynames</code> dataset across all years.</p>
 <div class="cell">
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb25"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb25-1"><a href="#cb25-1" aria-hidden="true" tabindex="-1"></a><span class="co">#\| label: summarize-global</span></span>
-<span id="cb25-2"><a href="#cb25-2" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb25-3"><a href="#cb25-3" aria-hidden="true" tabindex="-1"></a>total_babies_ever <span class="ot">&lt;-</span> babynames <span class="sc">|&gt;</span> </span>
-<span id="cb25-4"><a href="#cb25-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">summarize</span>( <span class="at">total_records =</span> <span class="fu">n</span>(), <span class="co"># Counts the number of rows </span></span>
-<span id="cb25-5"><a href="#cb25-5" aria-hidden="true" tabindex="-1"></a>             <span class="at">total_babies =</span> <span class="fu">sum</span>(n) ) <span class="co"># Sums the values in the 'n' column</span></span>
-<span id="cb25-6"><a href="#cb25-6" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb25-7"><a href="#cb25-7" aria-hidden="true" tabindex="-1"></a>total_babies_ever</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb27"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb27-1"><a href="#cb27-1" aria-hidden="true" tabindex="-1"></a><span class="co">#\| label: summarize-global</span></span>
+<span id="cb27-2"><a href="#cb27-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb27-3"><a href="#cb27-3" aria-hidden="true" tabindex="-1"></a>total_babies_ever <span class="ot">&lt;-</span> babynames <span class="sc">|&gt;</span> </span>
+<span id="cb27-4"><a href="#cb27-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">summarize</span>( <span class="at">total_records =</span> <span class="fu">n</span>(), <span class="co"># Counts the number of rows </span></span>
+<span id="cb27-5"><a href="#cb27-5" aria-hidden="true" tabindex="-1"></a>             <span class="at">total_babies =</span> <span class="fu">sum</span>(n) ) <span class="co"># Sums the values in the 'n' column</span></span>
+<span id="cb27-6"><a href="#cb27-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb27-7"><a href="#cb27-7" aria-hidden="true" tabindex="-1"></a>total_babies_ever</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <div class="cell-output cell-output-stdout">
 <pre><code># A tibble: 1 × 2
   total_records total_babies
@@ -498,11 +545,11 @@ $ prop &lt;dbl&gt; 0.07238359, 0.02667896, 0.02052149, 0.01986579, 0.01788843, 0
 <p>Summarizing the whole dataset is rarely what we want. We usually want statistics <em>by category</em>. We achieve this by piping our data through <code>group_by()</code> immediately before <code>summarize()</code>.</p>
 <p><strong>The Goal:</strong> Calculate the total number of babies born <em>per year</em>.</p>
 <div class="cell">
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb27"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb27-1"><a href="#cb27-1" aria-hidden="true" tabindex="-1"></a>babies_per_year <span class="ot">&lt;-</span> babynames <span class="sc">|&gt;</span></span>
-<span id="cb27-2"><a href="#cb27-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">group_by</span>(year) <span class="sc">|&gt;</span></span>
-<span id="cb27-3"><a href="#cb27-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">summarize</span>(<span class="at">total_babies =</span> <span class="fu">sum</span>(n))</span>
-<span id="cb27-4"><a href="#cb27-4" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb27-5"><a href="#cb27-5" aria-hidden="true" tabindex="-1"></a><span class="fu">head</span>(babies_per_year)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb29"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb29-1"><a href="#cb29-1" aria-hidden="true" tabindex="-1"></a>babies_per_year <span class="ot">&lt;-</span> babynames <span class="sc">|&gt;</span></span>
+<span id="cb29-2"><a href="#cb29-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">group_by</span>(year) <span class="sc">|&gt;</span></span>
+<span id="cb29-3"><a href="#cb29-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">summarize</span>(<span class="at">total_babies =</span> <span class="fu">sum</span>(n))</span>
+<span id="cb29-4"><a href="#cb29-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb29-5"><a href="#cb29-5" aria-hidden="true" tabindex="-1"></a><span class="fu">head</span>(babies_per_year)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <div class="cell-output cell-output-stdout">
 <pre><code># A tibble: 6 × 2
    year total_babies
@@ -526,15 +573,15 @@ $ prop &lt;dbl&gt; 0.07238359, 0.02667896, 0.02052149, 0.01986579, 0.01788843, 0
 <p>In your research, you will frequently need to calculate multiple summary statistics across intersecting categories (e.g., Control vs.&nbsp;Treatment across different Demographic groups).</p>
 <p>The Goal: For every year and every biological sex, calculate the total number of babies born AND find the longest name used in that specific group.</p>
 <div class="cell">
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb29"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb29-1"><a href="#cb29-1" aria-hidden="true" tabindex="-1"></a>yearly_sex_summary <span class="ot">&lt;-</span> babynames <span class="sc">|&gt;</span></span>
-<span id="cb29-2"><a href="#cb29-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">group_by</span>(year, sex) <span class="sc">|&gt;</span></span>
-<span id="cb29-3"><a href="#cb29-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">summarize</span>(</span>
-<span id="cb29-4"><a href="#cb29-4" aria-hidden="true" tabindex="-1"></a>    <span class="at">total_babies =</span> <span class="fu">sum</span>(n),</span>
-<span id="cb29-5"><a href="#cb29-5" aria-hidden="true" tabindex="-1"></a>    <span class="at">longest_name_length =</span> <span class="fu">max</span>(<span class="fu">nchar</span>(name)), </span>
-<span id="cb29-6"><a href="#cb29-6" aria-hidden="true" tabindex="-1"></a>    <span class="at">.groups =</span> <span class="st">"drop"</span></span>
-<span id="cb29-7"><a href="#cb29-7" aria-hidden="true" tabindex="-1"></a>  )</span>
-<span id="cb29-8"><a href="#cb29-8" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb29-9"><a href="#cb29-9" aria-hidden="true" tabindex="-1"></a><span class="fu">head</span>(yearly_sex_summary)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb31"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb31-1"><a href="#cb31-1" aria-hidden="true" tabindex="-1"></a>yearly_sex_summary <span class="ot">&lt;-</span> babynames <span class="sc">|&gt;</span></span>
+<span id="cb31-2"><a href="#cb31-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">group_by</span>(year, sex) <span class="sc">|&gt;</span></span>
+<span id="cb31-3"><a href="#cb31-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">summarize</span>(</span>
+<span id="cb31-4"><a href="#cb31-4" aria-hidden="true" tabindex="-1"></a>    <span class="at">total_babies =</span> <span class="fu">sum</span>(n),</span>
+<span id="cb31-5"><a href="#cb31-5" aria-hidden="true" tabindex="-1"></a>    <span class="at">longest_name_length =</span> <span class="fu">max</span>(<span class="fu">nchar</span>(name)), </span>
+<span id="cb31-6"><a href="#cb31-6" aria-hidden="true" tabindex="-1"></a>    <span class="at">.groups =</span> <span class="st">"drop"</span></span>
+<span id="cb31-7"><a href="#cb31-7" aria-hidden="true" tabindex="-1"></a>  )</span>
+<span id="cb31-8"><a href="#cb31-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb31-9"><a href="#cb31-9" aria-hidden="true" tabindex="-1"></a><span class="fu">head</span>(yearly_sex_summary)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <div class="cell-output cell-output-stdout">
 <pre><code># A tibble: 6 × 4
    year sex   total_babies longest_name_length

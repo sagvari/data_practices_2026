@@ -1,0 +1,256 @@
+<h1 id="5-short-coding-assignments-with-babynames" tabindex="-1">5 Short Coding Assignments with <code>babynames</code></h1>
+<h2 id="setup" tabindex="-1">Setup</h2>
+
+    <div class="code-copy-wrapper" onmouseenter="this.querySelector('.code-copy-button').style.opacity='1'" onmouseleave="this.querySelector('.code-copy-button').style.opacity='0'">
+      <pre><code class="hljs language-r">library<span class="hljs-punctuation">(</span>dplyr<span class="hljs-punctuation">)</span>
+library<span class="hljs-punctuation">(</span>babynames<span class="hljs-punctuation">)</span>
+</code></pre>
+
+      <button title="Copy Code" aria-label="Copy Code" class="code-copy-button" onclick="navigator.clipboard.writeText(this.previousElementSibling.innerText); this.style.opacity='0'">
+        <svg aria-hidden="true" height="16" viewBox="0 0 16 16" version="1.1" width="16">
+          <path fill="currentColor" d="M0 6.75C0 5.784.784 5 1.75 5h1.5a.75.75 0 0 1 0 1.5h-1.5a.25.25 0 0 0-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 0 0 .25-.25v-1.5a.75.75 0 0 1 1.5 0v1.5A1.75 1.75 0 0 1 9.25 16h-7.5A1.75 1.75 0 0 1 0 14.25Z"></path>
+          <path fill="currentColor" d="M5 1.75C5 .784 5.784 0 6.75 0h7.5C15.216 0 16 .784 16 1.75v7.5A1.75 1.75 0 0 1 14.25 11h-7.5A1.75 1.75 0 0 1 5 9.25Zm1.75-.25a.25.25 0 0 0-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 0 0 .25-.25v-7.5a.25.25 0 0 0-.25-.25Z"></path>
+        </svg>
+      </button>
+    </div><p>These exercises focus <strong>only on row manipulation</strong> with:</p>
+<ul>
+<li><code>filter()</code></li>
+<li><code>arrange()</code></li>
+<li><code>slice_head()</code> / <code>slice_tail()</code></li>
+<li><code>slice_min()</code> / <code>slice_max()</code></li>
+<li><code>slice_sample()</code></li>
+</ul>
+<p>Each exercise also asks you to <strong>briefly interpret your result</strong>. After running the code, write <strong>1–2 sentences describing what you found</strong> and what it might mean socially.</p>
+<hr>
+<h1 id="exercise-1-%E2%80%94-a-very-simple-filter" tabindex="-1">Exercise 1 — A very simple filter</h1>
+<p>Create a table that contains <strong>only female babies named &quot;Anna&quot; in the year 2000</strong>.</p>
+<p>Print the result.</p>
+<h3 id="scientific-question" tabindex="-1">Scientific question</h3>
+<p>How common was the name <strong>Anna</strong> among girls in 2000 in the United States?</p>
+<h3 id="reporting-task" tabindex="-1">Reporting task</h3>
+<p>Write <strong>1–2 sentences</strong> describing:</p>
+<ul>
+<li>how many babies were named Anna</li>
+<li>what percentage (<code>prop</code>) of all girls received that name</li>
+</ul>
+<p>What might this tell us about <strong>traditional vs. fashionable names</strong>?</p>
+<details>
+<summary>Hint</summary>
+<p>Use <code>filter()</code> and check:</p>
+<ul>
+<li><code>name == &quot;Anna&quot;</code></li>
+<li><code>year == 2000</code></li>
+<li><code>sex == &quot;F&quot;</code></li>
+</ul>
+<p>Look at the variables <code>n</code> and <code>prop</code>.</p>
+</details>
+<hr>
+<h1 id="exercise-2-%E2%80%94-filter-and-sort" tabindex="-1">Exercise 2 — Filter and sort</h1>
+<p>Find all rows for the name <strong>&quot;Jacob&quot;</strong> among <strong>male babies</strong>, then sort the results from the <strong>largest <code>n</code> to the smallest <code>n</code></strong>.</p>
+<p>Print the <strong>10 most popular years</strong> for the name Jacob.</p>
+<h3 id="scientific-question-1" tabindex="-1">Scientific question</h3>
+<p>When was <strong>Jacob</strong> most popular as a boys' name?</p>
+<h3 id="reporting-task-1" tabindex="-1">Reporting task</h3>
+<p>Write <strong>1–2 sentences</strong> describing:</p>
+<ul>
+<li>the year when Jacob peaked</li>
+<li>whether the name seems to have <strong>stable popularity</strong> or <strong>a short boom period</strong></li>
+</ul>
+<p>Why might some names suddenly become very popular?</p>
+<details>
+<summary>Hint</summary>
+<p>First keep only rows where:</p>
+<ul>
+<li><code>name == &quot;Jacob&quot;</code></li>
+<li><code>sex == &quot;M&quot;</code></li>
+</ul>
+<p>Then sort with:</p>
+
+    <div class="code-copy-wrapper" onmouseenter="this.querySelector('.code-copy-button').style.opacity='1'" onmouseleave="this.querySelector('.code-copy-button').style.opacity='0'">
+      <pre><code class="hljs language-r">arrange<span class="hljs-punctuation">(</span>desc<span class="hljs-punctuation">(</span>n<span class="hljs-punctuation">)</span><span class="hljs-punctuation">)</span>
+</code></pre>
+
+      <button title="Copy Code" aria-label="Copy Code" class="code-copy-button" onclick="navigator.clipboard.writeText(this.previousElementSibling.innerText); this.style.opacity='0'">
+        <svg aria-hidden="true" height="16" viewBox="0 0 16 16" version="1.1" width="16">
+          <path fill="currentColor" d="M0 6.75C0 5.784.784 5 1.75 5h1.5a.75.75 0 0 1 0 1.5h-1.5a.25.25 0 0 0-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 0 0 .25-.25v-1.5a.75.75 0 0 1 1.5 0v1.5A1.75 1.75 0 0 1 9.25 16h-7.5A1.75 1.75 0 0 1 0 14.25Z"></path>
+          <path fill="currentColor" d="M5 1.75C5 .784 5.784 0 6.75 0h7.5C15.216 0 16 .784 16 1.75v7.5A1.75 1.75 0 0 1 14.25 11h-7.5A1.75 1.75 0 0 1 5 9.25Zm1.75-.25a.25.25 0 0 0-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 0 0 .25-.25v-7.5a.25.25 0 0 0-.25-.25Z"></path>
+        </svg>
+      </button>
+    </div><p>Use <code>slice_head(n = 10)</code> to keep the first 10 rows.</p>
+</details>
+<hr>
+<h1 id="exercise-3-%E2%80%94-most-popular-female-names" tabindex="-1">Exercise 3 — Most popular female names</h1>
+<p>Look only at <strong>female names in 2015</strong>. From that subset, return the <strong>5 most common names</strong>.</p>
+<p><strong>Important:</strong> use a <code>slice_...</code> function.</p>
+<h3 id="scientific-question-2" tabindex="-1">Scientific question</h3>
+<p>Which names dominated among girls in <strong>2015</strong>?</p>
+<h3 id="reporting-task-2" tabindex="-1">Reporting task</h3>
+<p>Write <strong>1–2 sentences</strong> describing:</p>
+<ul>
+<li>the <strong>top name</strong></li>
+<li>whether the top five names together seem to represent a <strong>large or small share</strong> of births</li>
+</ul>
+<p>What might this say about <strong>diversity of names in modern societies</strong>?</p>
+<details>
+<summary>Hint</summary>
+<p>Start with:</p>
+
+    <div class="code-copy-wrapper" onmouseenter="this.querySelector('.code-copy-button').style.opacity='1'" onmouseleave="this.querySelector('.code-copy-button').style.opacity='0'">
+      <pre><code class="hljs language-r">filter<span class="hljs-punctuation">(</span>year <span class="hljs-operator">==</span> <span class="hljs-number">2015</span><span class="hljs-punctuation">,</span> sex <span class="hljs-operator">==</span> <span class="hljs-string">&quot;F&quot;</span><span class="hljs-punctuation">)</span>
+</code></pre>
+
+      <button title="Copy Code" aria-label="Copy Code" class="code-copy-button" onclick="navigator.clipboard.writeText(this.previousElementSibling.innerText); this.style.opacity='0'">
+        <svg aria-hidden="true" height="16" viewBox="0 0 16 16" version="1.1" width="16">
+          <path fill="currentColor" d="M0 6.75C0 5.784.784 5 1.75 5h1.5a.75.75 0 0 1 0 1.5h-1.5a.25.25 0 0 0-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 0 0 .25-.25v-1.5a.75.75 0 0 1 1.5 0v1.5A1.75 1.75 0 0 1 9.25 16h-7.5A1.75 1.75 0 0 1 0 14.25Z"></path>
+          <path fill="currentColor" d="M5 1.75C5 .784 5.784 0 6.75 0h7.5C15.216 0 16 .784 16 1.75v7.5A1.75 1.75 0 0 1 14.25 11h-7.5A1.75 1.75 0 0 1 5 9.25Zm1.75-.25a.25.25 0 0 0-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 0 0 .25-.25v-7.5a.25.25 0 0 0-.25-.25Z"></path>
+        </svg>
+      </button>
+    </div><p>Then use:</p>
+
+    <div class="code-copy-wrapper" onmouseenter="this.querySelector('.code-copy-button').style.opacity='1'" onmouseleave="this.querySelector('.code-copy-button').style.opacity='0'">
+      <pre><code class="hljs language-r">slice_max<span class="hljs-punctuation">(</span>order_by <span class="hljs-operator">=</span> n<span class="hljs-punctuation">,</span> n <span class="hljs-operator">=</span> <span class="hljs-number">5</span><span class="hljs-punctuation">)</span>
+</code></pre>
+
+      <button title="Copy Code" aria-label="Copy Code" class="code-copy-button" onclick="navigator.clipboard.writeText(this.previousElementSibling.innerText); this.style.opacity='0'">
+        <svg aria-hidden="true" height="16" viewBox="0 0 16 16" version="1.1" width="16">
+          <path fill="currentColor" d="M0 6.75C0 5.784.784 5 1.75 5h1.5a.75.75 0 0 1 0 1.5h-1.5a.25.25 0 0 0-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 0 0 .25-.25v-1.5a.75.75 0 0 1 1.5 0v1.5A1.75 1.75 0 0 1 9.25 16h-7.5A1.75 1.75 0 0 1 0 14.25Z"></path>
+          <path fill="currentColor" d="M5 1.75C5 .784 5.784 0 6.75 0h7.5C15.216 0 16 .784 16 1.75v7.5A1.75 1.75 0 0 1 14.25 11h-7.5A1.75 1.75 0 0 1 5 9.25Zm1.75-.25a.25.25 0 0 0-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 0 0 .25-.25v-7.5a.25.25 0 0 0-.25-.25Z"></path>
+        </svg>
+      </button>
+    </div></details>
+<hr>
+<h1 id="exercise-4-%E2%80%94-looking-at-the-%22tail%22-of-the-distribution" tabindex="-1">Exercise 4 — Looking at the &quot;tail&quot; of the distribution</h1>
+<p>Create two small tables from the year <strong>1980</strong>:</p>
+<ol>
+<li>the <strong>first 4 rows</strong> of the 1980 subset</li>
+<li>the <strong>last 4 rows</strong> of the 1980 subset</li>
+</ol>
+<p>Name them something like <code>first_1980</code> and <code>last_1980</code>.</p>
+<h3 id="scientific-question-3" tabindex="-1">Scientific question</h3>
+<p>What do the <strong>least frequent names</strong> in a year look like?</p>
+<h3 id="reporting-task-3" tabindex="-1">Reporting task</h3>
+<p>Write <strong>1–2 sentences</strong> describing:</p>
+<ul>
+<li>how rare the names in the tail are</li>
+<li>what this tells us about the <strong>long tail of name diversity</strong> in society</li>
+</ul>
+<p>Why might parents choose extremely rare names?</p>
+<details>
+<summary>Hint</summary>
+<p>First create a filtered subset:</p>
+
+    <div class="code-copy-wrapper" onmouseenter="this.querySelector('.code-copy-button').style.opacity='1'" onmouseleave="this.querySelector('.code-copy-button').style.opacity='0'">
+      <pre><code class="hljs language-r">filter<span class="hljs-punctuation">(</span>year <span class="hljs-operator">==</span> <span class="hljs-number">1980</span><span class="hljs-punctuation">)</span>
+</code></pre>
+
+      <button title="Copy Code" aria-label="Copy Code" class="code-copy-button" onclick="navigator.clipboard.writeText(this.previousElementSibling.innerText); this.style.opacity='0'">
+        <svg aria-hidden="true" height="16" viewBox="0 0 16 16" version="1.1" width="16">
+          <path fill="currentColor" d="M0 6.75C0 5.784.784 5 1.75 5h1.5a.75.75 0 0 1 0 1.5h-1.5a.25.25 0 0 0-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 0 0 .25-.25v-1.5a.75.75 0 0 1 1.5 0v1.5A1.75 1.75 0 0 1 9.25 16h-7.5A1.75 1.75 0 0 1 0 14.25Z"></path>
+          <path fill="currentColor" d="M5 1.75C5 .784 5.784 0 6.75 0h7.5C15.216 0 16 .784 16 1.75v7.5A1.75 1.75 0 0 1 14.25 11h-7.5A1.75 1.75 0 0 1 5 9.25Zm1.75-.25a.25.25 0 0 0-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 0 0 .25-.25v-7.5a.25.25 0 0 0-.25-.25Z"></path>
+        </svg>
+      </button>
+    </div><p>Then use:</p>
+
+    <div class="code-copy-wrapper" onmouseenter="this.querySelector('.code-copy-button').style.opacity='1'" onmouseleave="this.querySelector('.code-copy-button').style.opacity='0'">
+      <pre><code class="hljs language-r">slice_head<span class="hljs-punctuation">(</span>n <span class="hljs-operator">=</span> <span class="hljs-number">4</span><span class="hljs-punctuation">)</span>
+</code></pre>
+
+      <button title="Copy Code" aria-label="Copy Code" class="code-copy-button" onclick="navigator.clipboard.writeText(this.previousElementSibling.innerText); this.style.opacity='0'">
+        <svg aria-hidden="true" height="16" viewBox="0 0 16 16" version="1.1" width="16">
+          <path fill="currentColor" d="M0 6.75C0 5.784.784 5 1.75 5h1.5a.75.75 0 0 1 0 1.5h-1.5a.25.25 0 0 0-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 0 0 .25-.25v-1.5a.75.75 0 0 1 1.5 0v1.5A1.75 1.75 0 0 1 9.25 16h-7.5A1.75 1.75 0 0 1 0 14.25Z"></path>
+          <path fill="currentColor" d="M5 1.75C5 .784 5.784 0 6.75 0h7.5C15.216 0 16 .784 16 1.75v7.5A1.75 1.75 0 0 1 14.25 11h-7.5A1.75 1.75 0 0 1 5 9.25Zm1.75-.25a.25.25 0 0 0-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 0 0 .25-.25v-7.5a.25.25 0 0 0-.25-.25Z"></path>
+        </svg>
+      </button>
+    </div><p>and</p>
+
+    <div class="code-copy-wrapper" onmouseenter="this.querySelector('.code-copy-button').style.opacity='1'" onmouseleave="this.querySelector('.code-copy-button').style.opacity='0'">
+      <pre><code class="hljs language-r">slice_tail<span class="hljs-punctuation">(</span>n <span class="hljs-operator">=</span> <span class="hljs-number">4</span><span class="hljs-punctuation">)</span>
+</code></pre>
+
+      <button title="Copy Code" aria-label="Copy Code" class="code-copy-button" onclick="navigator.clipboard.writeText(this.previousElementSibling.innerText); this.style.opacity='0'">
+        <svg aria-hidden="true" height="16" viewBox="0 0 16 16" version="1.1" width="16">
+          <path fill="currentColor" d="M0 6.75C0 5.784.784 5 1.75 5h1.5a.75.75 0 0 1 0 1.5h-1.5a.25.25 0 0 0-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 0 0 .25-.25v-1.5a.75.75 0 0 1 1.5 0v1.5A1.75 1.75 0 0 1 9.25 16h-7.5A1.75 1.75 0 0 1 0 14.25Z"></path>
+          <path fill="currentColor" d="M5 1.75C5 .784 5.784 0 6.75 0h7.5C15.216 0 16 .784 16 1.75v7.5A1.75 1.75 0 0 1 14.25 11h-7.5A1.75 1.75 0 0 1 5 9.25Zm1.75-.25a.25.25 0 0 0-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 0 0 .25-.25v-7.5a.25.25 0 0 0-.25-.25Z"></path>
+        </svg>
+      </button>
+    </div></details>
+<hr>
+<h1 id="exercise-5-%E2%80%94-rare-names" tabindex="-1">Exercise 5 — Rare names</h1>
+<p>Among <strong>male names in 1995</strong>, find the <strong>10 least common names</strong>.</p>
+<p>Return exactly <strong>10 rows</strong>.</p>
+<h3 id="scientific-question-4" tabindex="-1">Scientific question</h3>
+<p>How rare can names be in a national dataset of births?</p>
+<h3 id="reporting-task-4" tabindex="-1">Reporting task</h3>
+<p>Write <strong>1–2 sentences</strong> describing:</p>
+<ul>
+<li>the value of <code>n</code> for the rarest names</li>
+<li>whether the dataset contains many extremely rare names</li>
+</ul>
+<p>Why might rare names be sociologically interesting?</p>
+<details>
+<summary>Hint</summary>
+<p>Use:</p>
+
+    <div class="code-copy-wrapper" onmouseenter="this.querySelector('.code-copy-button').style.opacity='1'" onmouseleave="this.querySelector('.code-copy-button').style.opacity='0'">
+      <pre><code class="hljs language-r">filter<span class="hljs-punctuation">(</span>year <span class="hljs-operator">==</span> <span class="hljs-number">1995</span><span class="hljs-punctuation">,</span> sex <span class="hljs-operator">==</span> <span class="hljs-string">&quot;M&quot;</span><span class="hljs-punctuation">)</span>
+</code></pre>
+
+      <button title="Copy Code" aria-label="Copy Code" class="code-copy-button" onclick="navigator.clipboard.writeText(this.previousElementSibling.innerText); this.style.opacity='0'">
+        <svg aria-hidden="true" height="16" viewBox="0 0 16 16" version="1.1" width="16">
+          <path fill="currentColor" d="M0 6.75C0 5.784.784 5 1.75 5h1.5a.75.75 0 0 1 0 1.5h-1.5a.25.25 0 0 0-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 0 0 .25-.25v-1.5a.75.75 0 0 1 1.5 0v1.5A1.75 1.75 0 0 1 9.25 16h-7.5A1.75 1.75 0 0 1 0 14.25Z"></path>
+          <path fill="currentColor" d="M5 1.75C5 .784 5.784 0 6.75 0h7.5C15.216 0 16 .784 16 1.75v7.5A1.75 1.75 0 0 1 14.25 11h-7.5A1.75 1.75 0 0 1 5 9.25Zm1.75-.25a.25.25 0 0 0-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 0 0 .25-.25v-7.5a.25.25 0 0 0-.25-.25Z"></path>
+        </svg>
+      </button>
+    </div><p>Then:</p>
+
+    <div class="code-copy-wrapper" onmouseenter="this.querySelector('.code-copy-button').style.opacity='1'" onmouseleave="this.querySelector('.code-copy-button').style.opacity='0'">
+      <pre><code class="hljs language-r">slice_min<span class="hljs-punctuation">(</span>order_by <span class="hljs-operator">=</span> n<span class="hljs-punctuation">,</span> n <span class="hljs-operator">=</span> <span class="hljs-number">10</span><span class="hljs-punctuation">,</span> with_ties <span class="hljs-operator">=</span> <span class="hljs-literal">FALSE</span><span class="hljs-punctuation">)</span>
+</code></pre>
+
+      <button title="Copy Code" aria-label="Copy Code" class="code-copy-button" onclick="navigator.clipboard.writeText(this.previousElementSibling.innerText); this.style.opacity='0'">
+        <svg aria-hidden="true" height="16" viewBox="0 0 16 16" version="1.1" width="16">
+          <path fill="currentColor" d="M0 6.75C0 5.784.784 5 1.75 5h1.5a.75.75 0 0 1 0 1.5h-1.5a.25.25 0 0 0-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 0 0 .25-.25v-1.5a.75.75 0 0 1 1.5 0v1.5A1.75 1.75 0 0 1 9.25 16h-7.5A1.75 1.75 0 0 1 0 14.25Z"></path>
+          <path fill="currentColor" d="M5 1.75C5 .784 5.784 0 6.75 0h7.5C15.216 0 16 .784 16 1.75v7.5A1.75 1.75 0 0 1 14.25 11h-7.5A1.75 1.75 0 0 1 5 9.25Zm1.75-.25a.25.25 0 0 0-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 0 0 .25-.25v-7.5a.25.25 0 0 0-.25-.25Z"></path>
+        </svg>
+      </button>
+    </div><p><code>with_ties = FALSE</code> ensures you get exactly 10 rows.</p>
+</details>
+<hr>
+<h1 id="optional-bonus-%E2%80%94-random-sampling" tabindex="-1">Optional Bonus — Random sampling</h1>
+<p>Take the subset of all names from <strong>2020</strong> and draw a <strong>random sample of 8 rows</strong>.</p>
+<h3 id="scientific-question-5" tabindex="-1">Scientific question</h3>
+<p>What does a <strong>random sample of names</strong> from one year look like?</p>
+<h3 id="reporting-task-5" tabindex="-1">Reporting task</h3>
+<p>Write <strong>1–2 sentences</strong> describing:</p>
+<ul>
+<li>what kinds of names appear in the random sample</li>
+<li>whether they seem common or rare</li>
+</ul>
+<p>What does this illustrate about <strong>sampling from large datasets</strong>?</p>
+<details>
+<summary>Hint</summary>
+<p>Use:</p>
+
+    <div class="code-copy-wrapper" onmouseenter="this.querySelector('.code-copy-button').style.opacity='1'" onmouseleave="this.querySelector('.code-copy-button').style.opacity='0'">
+      <pre><code class="hljs language-r">set.seed<span class="hljs-punctuation">(</span><span class="hljs-number">123</span><span class="hljs-punctuation">)</span>
+</code></pre>
+
+      <button title="Copy Code" aria-label="Copy Code" class="code-copy-button" onclick="navigator.clipboard.writeText(this.previousElementSibling.innerText); this.style.opacity='0'">
+        <svg aria-hidden="true" height="16" viewBox="0 0 16 16" version="1.1" width="16">
+          <path fill="currentColor" d="M0 6.75C0 5.784.784 5 1.75 5h1.5a.75.75 0 0 1 0 1.5h-1.5a.25.25 0 0 0-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 0 0 .25-.25v-1.5a.75.75 0 0 1 1.5 0v1.5A1.75 1.75 0 0 1 9.25 16h-7.5A1.75 1.75 0 0 1 0 14.25Z"></path>
+          <path fill="currentColor" d="M5 1.75C5 .784 5.784 0 6.75 0h7.5C15.216 0 16 .784 16 1.75v7.5A1.75 1.75 0 0 1 14.25 11h-7.5A1.75 1.75 0 0 1 5 9.25Zm1.75-.25a.25.25 0 0 0-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 0 0 .25-.25v-7.5a.25.25 0 0 0-.25-.25Z"></path>
+        </svg>
+      </button>
+    </div><p>Then:</p>
+
+    <div class="code-copy-wrapper" onmouseenter="this.querySelector('.code-copy-button').style.opacity='1'" onmouseleave="this.querySelector('.code-copy-button').style.opacity='0'">
+      <pre><code class="hljs language-r">slice_sample<span class="hljs-punctuation">(</span>n <span class="hljs-operator">=</span> <span class="hljs-number">8</span><span class="hljs-punctuation">)</span>
+</code></pre>
+
+      <button title="Copy Code" aria-label="Copy Code" class="code-copy-button" onclick="navigator.clipboard.writeText(this.previousElementSibling.innerText); this.style.opacity='0'">
+        <svg aria-hidden="true" height="16" viewBox="0 0 16 16" version="1.1" width="16">
+          <path fill="currentColor" d="M0 6.75C0 5.784.784 5 1.75 5h1.5a.75.75 0 0 1 0 1.5h-1.5a.25.25 0 0 0-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 0 0 .25-.25v-1.5a.75.75 0 0 1 1.5 0v1.5A1.75 1.75 0 0 1 9.25 16h-7.5A1.75 1.75 0 0 1 0 14.25Z"></path>
+          <path fill="currentColor" d="M5 1.75C5 .784 5.784 0 6.75 0h7.5C15.216 0 16 .784 16 1.75v7.5A1.75 1.75 0 0 1 14.25 11h-7.5A1.75 1.75 0 0 1 5 9.25Zm1.75-.25a.25.25 0 0 0-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 0 0 .25-.25v-7.5a.25.25 0 0 0-.25-.25Z"></path>
+        </svg>
+      </button>
+    </div></details>
