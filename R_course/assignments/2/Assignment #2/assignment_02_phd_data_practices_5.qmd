@@ -1,0 +1,931 @@
+---
+title: "Data Practices 2026 — Assignment 02"
+subtitle: "Country-Level Data Manipulation & Weighted Survey Analysis"
+author: "Bence Ságvári" # change this to your own name 😉
+date: today
+format:
+  html:
+    toc: true
+    toc-float: true
+    toc-depth: 3
+    number-sections: true
+    embed-resources: true
+    theme: cosmo
+    code-fold: false
+    df-print: paged
+execute:
+  echo: true
+  eval: false
+  warning: false
+  message: false
+editor: 
+  markdown: 
+    wrap: sentence
+---
+
+```{r}
+#| label: setup-check
+#| echo: false
+#| eval: true
+# This hidden chunk just confirms the document renders correctly.
+# Students: ignore this block.
+```
+
+------------------------------------------------------------------------
+
+# How to Use This Document {.unnumbered}
+
+::: callout-important
+## ✋ Read this first — five steps before you write a single line of code
+
+**Step 1 — Open the right project.** This assignment assumes you are working inside an RStudio Project (see [Section 2](#sec-project) below).
+Before anything else, make sure the correct `.Rproj` file is open.
+You will see the project name in the top-right corner of RStudio.
+
+**Step 2 — Run the Setup chunk.** Go to [Section 3](#sec-setup) and run the setup chunk.
+It installs any missing packages, loads all libraries, and downloads both datasets.
+Nothing in the exercises will work until this has run successfully.
+
+**Step 3 — Find the ✏️ markers.** Every place where you need to write code or an answer is marked with a **✏️** icon.
+Do not write code anywhere else unless you are experimenting in a scratch chunk.
+
+**Step 4 — Use the hints.** Each exercise has two collapsible hint boxes.
+Open **Hint 1** first — it gives you direction without giving away the solution.
+Only open **Hint 2** if you are still stuck — it provides more detail and a worked example on a different dataset.
+
+**Step 5 — Render before submitting.** When finished, click *Render* (Ctrl/Cmd + Shift + K).
+Fix any errors until the document renders cleanly to HTML, then submit the `.html` file.
+:::
+
+------------------------------------------------------------------------
+
+# Project Setup {#sec-project}
+
+## Why use an RStudio Project?
+
+When you open a plain R script or a `.qmd` file without a project, R has no idea where "home" is.
+Every time you reference a file — a CSV, a plot output, a saved model — you either have to type out the full absolute path (`C:/Users/yourname/Documents/...`) or use `setwd()`, which breaks the moment someone else opens your code, or you move the folder.
+
+An **RStudio Project** solves this by making the project folder the automatic working directory whenever you open it.
+Your paths become relative to that folder, which means:
+
+-   The same code works on your laptop, your colleague's laptop, and the grading server
+-   You never need `setwd()` again
+-   All your scripts, data, and outputs are self-contained in one place
+
+::: {.callout-tip collapse="true"}
+## 📁 Step-by-step: creating a new RStudio Project
+
+If you already have a project from a previous week's class, you can use that — just skip to [Section 2.2](#sec-here).
+
+**Creating a new project:**
+
+1.  Open RStudio → `File` → `New Project`
+2.  Choose **New Directory** → **New Project**
+3.  Give it a meaningful name: `data_practices_2026` or `phd_assignment_02`
+4.  Choose a location on your computer (e.g., `Documents/courses/`)
+5.  Click **Create Project** — RStudio restarts inside the new folder
+
+**Recommended folder structure (create these in the Files panel):**
+
+```         
+data_practices_2026/
+├── data/          ← downloaded datasets live here
+├── scripts/       ← standalone R scripts (optional)
+├── output/        ← rendered HTML files, saved plots
+└── assignment_02.qmd   ← this file
+```
+
+To create a subfolder: in the Files panel (bottom right), click **New Folder**.
+:::
+
+## The `here` package {#sec-here}
+
+Once you are inside a project, the `here` package gives you a clean, OS-independent way to build file paths.
+Instead of:
+
+``` r
+read_csv("C:/Users/myname/Documents/data_practices_2026/data/wdi.csv")  # fragile
+read_csv("data/wdi.csv")   # works only if working directory is exactly right
+```
+
+You write:
+
+``` r
+read_csv(here("data", "wdi.csv"))   # always works, on any machine
+```
+
+`here()` automatically detects the project root (the folder with the `.Rproj` file) and builds the path from there.
+It is especially important for Quarto documents, which sometimes set their own working directory differently from the console.
+
+::: {.callout-note collapse="true"}
+## 🔍 Why `here()` matters more than you think
+
+Quarto documents render in their own environment.
+When you click **Render**, R's working directory is set to the folder containing the `.qmd` file — which is *usually* the project root, but not always.
+If you ever move the `.qmd` into a subfolder, all relative paths break immediately.
+`here()` always anchors to the `.Rproj` file, so it survives reorganisation.
+
+A practical rule: **never use `setwd()` inside a script or a `.qmd`. Use `here()` instead.**
+
+You can verify it is working by running `here()` in the console — it should print your project folder path.
+:::
+
+------------------------------------------------------------------------
+
+# Setup: Packages and Data {#sec-setup}
+
+::: {.callout-note collapse="true"}
+## 📦 What are packages and why do we need them? (Beginner explanation)
+
+R comes with a set of built-in functions — enough to do basic arithmetic, read files, and fit simple models.
+But the real power of R comes from **packages**: collections of functions written by researchers and developers around the world, freely shared via CRAN (the Comprehensive R Archive Network).
+
+Think of packages like apps on a smartphone:
+
+-   You **install** an app once (it downloads to your device)
+-   You **open** it every time you want to use it
+
+In R:
+
+``` r
+install.packages("tidyverse")   # install once — do this in the Console, not in a script
+library(tidyverse)              # open every session — put this at the top of every script
+```
+
+**The packages we use in this assignment:**
+
+| Package | What it does |
+|------------------------------|------------------------------------------|
+| `tidyverse` | A family of packages for data manipulation (`dplyr`), visualisation (`ggplot2`), and more |
+| `WDI` | Downloads World Bank World Development Indicators data directly into R |
+| `haven` | Reads SPSS `.sav` files (the Pew dataset format) |
+| `srvyr` | Adds survey-weight support to tidyverse-style code |
+| `here` | Builds file paths relative to the project root |
+| `knitr` | Formats tables nicely when rendering |
+| `scales` | Formats numbers and axes in plots (e.g. thousands separators, percentages) |
+
+If you see an error like `there is no package called 'WDI'`, run the install line below in your **Console** (not in the document).
+:::
+
+```{r}
+#| label: setup-packages
+#| eval: true
+#| message: false
+#| warning: false
+
+# Single source of truth for all required packages.
+# Only installs what is not already present — safe to run repeatedly.
+packages <- c("tidyverse", "WDI", "haven", "srvyr",
+              "here", "knitr", "scales")
+
+missing <- packages[!packages %in% installed.packages()[, "Package"]]
+if (length(missing) > 0) install.packages(missing)
+
+invisible(lapply(packages, library, character.only = TRUE))
+```
+
+## Download and prepare the WDI dataset
+
+The **World Development Indicators (WDI)** is the World Bank's flagship database: over 1,500 indicators covering more than 200 countries from the 1960s to the present.
+We pull it directly from the World Bank API using the `WDI` package — no manual download needed.
+
+The data file is also available in the course GitHub repository as a backup: `https://github.com/sagvari/data_practices_2026/tree/main/R_course/data`
+
+```{r}
+#| label: download-wdi
+#| eval: true
+#| cache: true
+
+# Pull a curated set of socioeconomic indicators for all countries, 2000-2022.
+# extra = TRUE adds region, income group, and ISO3 code columns automatically.
+wdi_raw <- WDI(
+  indicator = c(
+    "NY.GDP.PCAP.KD",   # GDP per capita (constant 2015 USD)
+    "SP.DYN.LE00.IN",   # Life expectancy at birth (years)
+    "SP.POP.TOTL",      # Total population
+    "IT.NET.USER.ZS",   # Individuals using the internet (% of pop.)
+    "SE.SEC.ENRR",      # Secondary school enrolment (% gross)
+    "SL.UEM.TOTL.ZS",   # Unemployment rate (% of labour force)
+    "SI.POV.GINI"       # Gini index (income inequality, 0–100)
+  ),
+  start = 2000,
+  end   = 2022,
+  extra = TRUE    # adds: region, income, iso3c, capital, longitude, latitude
+)
+
+# Rename indicator columns to human-friendly names, then clean up
+wdi <- wdi_raw |>
+  rename(
+    country_name    = country,
+    gdp_per_capita  = NY.GDP.PCAP.KD,
+    life_expectancy = SP.DYN.LE00.IN,
+    population      = SP.POP.TOTL,
+    internet_use    = IT.NET.USER.ZS,
+    school_enroll   = SE.SEC.ENRR,
+    unemployment    = SL.UEM.TOTL.ZS,
+    gini            = SI.POV.GINI
+  ) |>
+  filter(region != "Aggregates", !is.na(region)) |>
+  select(country_name, iso2c, iso3c, year,
+         region, income,
+         gdp_per_capita, life_expectancy, population,
+         internet_use, school_enroll,
+         unemployment, gini)
+
+# Save locally so you don't need to re-download on every render
+write_csv(wdi, here("data", "wdi_indicators.csv"))
+
+glimpse(wdi)
+```
+
+## Download and prepare the Pew 2024 dataset
+
+The **Pew Research Center Global Attitudes Spring 2024** survey covers 24 countries with nationally representative samples and complex survey weights.
+
+```{r}
+#| label: download-pew
+#| eval: true
+#| cache: true
+
+# Direct download from the course SharePoint repository
+data_link <- "https://tkmtahu-my.sharepoint.com/:u:/g/personal/sagvari_bence_tk_hu/IQCc8k4_cII9TIlJmZQULNd6ATVy7R_EEkU5AwRBspfjP_A?download=1"
+
+tmp <- tempfile(fileext = ".sav")
+download.file(data_link, tmp, mode = "wb", quiet = TRUE)
+pew_raw <- haven::read_spss(tmp)
+
+# ── Recode and clean (matching Week 5 notebook) ───────────────────────────────
+pew <- pew_raw |>
+  mutate(
+    # Country label (drop SPSS attributes)
+    # country is numeric in the .sav; as_factor() uses the SPSS value labels
+    country = as.character(as_factor(country)),
+
+    # Survey weight
+    weight  = as.numeric(weight),
+
+    # Topic A — Democracy satisfaction (satisfied_democracy, Q3):
+    #   1=Very satisfied, 2=Somewhat satisfied, 3=Not too satisfied, 4=Not at all satisfied
+    dem_satisfied = case_when(
+      satisfied_democracy %in% 1:2 ~ 1L,   # satisfied
+      satisfied_democracy %in% 3:4 ~ 0L,   # not satisfied
+      TRUE                         ~ NA_integer_
+    ),
+
+    # Topic A — Press freedom important (press_freedom, Q12a):
+    #   1=Very important, 2=Somewhat important, 3=Not too important, 4=Not important at all
+    press_freedom_imp = case_when(
+      press_freedom %in% 1:2 ~ 1L,
+      press_freedom %in% 3:4 ~ 0L,
+      TRUE                   ~ NA_integer_
+    ),
+
+    # Topic B — Economic situation: national (econ_sit, Q1):
+    #   1=Very good, 2=Somewhat good, 3=Somewhat bad, 4=Very bad
+    econ_good = case_when(
+      econ_sit %in% 1:2 ~ 1L,
+      econ_sit %in% 3:4 ~ 0L,
+      TRUE              ~ NA_integer_
+    ),
+
+    # Topic C — Religiosity: how important is religion (religion_import, Q23):
+    #   1=Very important, 2=Somewhat important, 3=Not too important, 4=Not at all important
+    religion_important = case_when(
+      religion_import %in% 1:2 ~ 1L,
+      religion_import %in% 3:4 ~ 0L,
+      TRUE                     ~ NA_integer_
+    ),
+
+    # Demographic: age group (age, Q109a — numeric age in years)
+    age_group = case_when(
+      age < 30          ~ "18–29",
+      age < 50          ~ "30–49",
+      age < 65          ~ "50–64",
+      age >= 65         ~ "65+",
+      TRUE              ~ NA_character_
+    ),
+
+    # Demographic: gender is already named `gender` in the dataset (Q108)
+    # Values: 1 = Male, 2 = Female — recode to character labels
+    gender_label = case_when(
+      gender == 1 ~ "Male",
+      gender == 2 ~ "Female",
+      TRUE        ~ NA_character_
+    )
+  ) |>
+  filter(!is.na(weight)) |>
+  select(country, weight, dem_satisfied, press_freedom_imp,
+         econ_good, religion_important, age_group,
+         gender = gender_label)   # rename for cleaner downstream use
+
+# Save locally
+write_csv(pew, here("data", "pew2024_cleaned.csv"))
+
+glimpse(pew)
+```
+
+```{r}
+#| label: survey-design
+#| eval: true
+
+# Create the srvyr survey design object — required for all weighted analyses
+pew_design <- pew |>
+  as_survey_design(weights = weight)
+```
+
+------------------------------------------------------------------------
+
+# Part 1 — Country-Level Data Manipulation with WDI {#sec-wdi}
+
+In this section you will use the WDI dataset to practise the core `dplyr` verbs covered in Weeks 2 and 3.
+The dataset has **`r if(exists("wdi")) nrow(wdi) else "~30,000"`** rows (country × year observations) and 14 columns.
+
+::: callout-note
+## 🗂️ Quick variable reference
+
+| Variable | Description | Unit |
+|------------------------|-------------------------------|-----------------|
+| `country_name` | Country name | — |
+| `iso3c` | ISO 3-letter country code | — |
+| `year` | Year | — |
+| `region` | World Bank region | — |
+| `income` | Income group (Low / Lower-middle / Upper-middle / High) | — |
+| `gdp_per_capita` | GDP per capita | Constant 2015 USD |
+| `life_expectancy` | Life expectancy at birth | Years |
+| `population` | Total population | Persons |
+| `internet_use` | Internet users | \% of population |
+| `school_enroll` | Secondary school enrolment | \% gross |
+| `unemployment` | Unemployment rate | \% of labour force |
+| `gini` | Gini coefficient (income inequality) | 0 = perfect equality, 100 = maximum inequality |
+:::
+
+------------------------------------------------------------------------
+
+## ✏️ Exercise 1 — Filtering: Who Broke 80 Years? {#sec-ex1}
+
+**Topic:** Life expectancy and the high-income world
+
+The global average life expectancy was around 73 years in 2022.
+A life expectancy above 80 is often taken as a marker of a well-functioning health system and high living standards.
+
+**Your task:** Using the most recent year in the dataset (2022), find all **high-income** countries where life expectancy exceeded **80 years**.
+Sort the result from highest to lowest life expectancy and display the country name, region, life expectancy, and GDP per capita.
+
+```{r}
+#| label: ex1-solution
+
+# ✏️ Write your solution here
+
+```
+
+::: {.callout-tip collapse="true"}
+## 💡 Hint 1 — Where to start
+
+You need to narrow down the rows in two ways: by year and by a numeric threshold.
+Think about which `dplyr` verb keeps only the rows that match certain conditions.
+You will need to apply multiple conditions at once — remember that a comma inside `filter()` acts like AND.
+:::
+
+::: {.callout-tip collapse="true"}
+## 💡 Hint 2 — More detail
+
+Use `filter()` with multiple conditions, then `arrange()` to sort:
+
+``` r
+# Example: countries with population over 100 million in 2022
+wdi |>
+  filter(year == 2022, population > 100e6) |>
+  arrange(desc(population))
+```
+
+For your task, replace `population > 100e6` with the right variable and threshold.
+Don't forget to also filter by income group — check the exact label by running `unique(wdi$income)` first.
+:::
+
+------------------------------------------------------------------------
+
+## ✏️ Exercise 2 — Selecting and Renaming: A Clean Country Snapshot {#sec-ex2}
+
+**Topic:** Internet access in Central and Eastern Europe
+
+You want to share a clean, readable table of internet access figures with a non-technical colleague who does not need to see all 14 columns.
+
+**Your task:** From the 2019 data (pre-pandemic, the last "normal" year for many indicators), select only countries in the **Europe & Central Asia** region.
+Keep only four columns: country name, year, internet use, and unemployment.
+Rename them to something human-friendly (`Country`, `Year`, `Internet use (%)`, `Unemployment (%)`).
+Sort by internet use, descending.
+
+```{r}
+#| label: ex2-solution
+
+# ✏️ Write your solution here
+
+```
+
+::: {.callout-tip collapse="true"}
+## 💡 Hint 1 — Where to start
+
+This is a filtering + column selection task.
+Think: which verb subsets **rows**?
+Which verb subsets (and renames) **columns**?
+You can rename inside `select()` using the `new_name = old_name` syntax.
+:::
+
+::: {.callout-tip collapse="true"}
+## 💡 Hint 2 — More detail
+
+`select()` lets you rename on the fly:
+
+``` r
+# Example: rename columns while selecting them
+babynames |>
+  select(Year = year, Name = name, Count = n)
+```
+
+Chain `filter()` before `select()` to first narrow down the rows.
+Check the exact region label with `unique(wdi$region)`.
+:::
+
+------------------------------------------------------------------------
+
+## ✏️ Exercise 3 — Mutate: The Digital Divide Index {#sec-ex3}
+
+**Topic:** Computing a derived indicator from two existing variables
+
+Economists and sociologists often talk about the **digital divide**: the gap between rich and poor countries in access to the internet.
+One simple way to quantify how *efficiently* a country converts economic wealth into internet access is to compare internet use against GDP per capita.
+A country with high internet use *relative to* its GDP is punching above its weight; a country with low internet use *relative to* its GDP has room to catch up.
+
+**Your task:** Using the 2019 data (a stable pre-pandemic year):
+
+1.  Create a new column called `internet_per_gdp` defined as `internet_use` divided by `(gdp_per_capita / 1000)` — this rescales GDP so the resulting ratio is on a readable scale.
+2.  Remove rows where either variable is missing.
+3.  Show the **10 countries with the highest ratio** (high internet access relative to GDP) and the **10 countries with the lowest ratio** (low internet access relative to GDP) in a single combined table. Add a column `group` labelling each country as `"High"` or `"Low"` so they are easy to distinguish.
+4.  What does the pattern in the "Low" group tell you about the relationship between economic development and internet access?
+
+```{r}
+#| label: ex3-solution
+
+# ✏️ Write your solution here
+
+```
+
+::: {.callout-tip collapse="true"}
+## 💡 Hint 1 — Where to start
+
+There is a `dplyr` verb that adds a new column to a data frame without removing any existing ones — it works like a calculator that can see all the other columns.
+After creating the new column, think about how to remove rows where the result could not be computed (i.e. where one of the inputs was `NA`).
+To show the top and bottom rows together, you will need to combine two separate results.
+:::
+
+::: {.callout-tip collapse="true"}
+## 💡 Hint 2 — More detail
+
+`mutate()` creates the new column.
+`filter(!is.na(variable))` removes rows where it is missing.
+`slice_max()` and `slice_min()` extract the top/bottom *n* rows.
+`bind_rows()` stacks two data frames vertically:
+
+``` r
+# Example: create a ratio, then show top-5 and bottom-5 combined
+data_2019 <- wdi |>
+  filter(year == 2019) |>
+  mutate(school_per_gdp = school_enroll / (gdp_per_capita / 1000)) |>
+  filter(!is.na(school_per_gdp))
+
+top5    <- slice_max(data_2019, school_per_gdp, n = 5) |> mutate(group = "High")
+bottom5 <- slice_min(data_2019, school_per_gdp, n = 5) |> mutate(group = "Low")
+
+bind_rows(top5, bottom5) |>
+  select(country_name, region, school_per_gdp, group)
+```
+
+Apply the same logic to `internet_per_gdp` and adjust *n* to 10.
+:::
+
+------------------------------------------------------------------------
+
+## ✏️ Exercise 4 — Group By and Summarise: Regional Inequality Profiles {#sec-ex4}
+
+**Topic:** Income inequality across world regions
+
+The Gini coefficient measures income inequality: 0 means everyone earns the same, 100 means one person earns everything.
+The WDI includes Gini estimates for most countries, though with many missing values because inequality surveys are conducted infrequently.
+
+**Your task:** Using the most recent available Gini value **per country** (some countries have data in 2021, others only in 2018 — use the latest non-missing value per country), compute the **median and mean Gini** by World Bank `region`, along with the **number of countries** included in each regional average.
+Sort by median Gini, descending.
+
+*Guidance: This is a multi-step problem. First get the latest Gini per country, then summarise by region.*
+
+```{r}
+#| label: ex4-solution
+
+# ✏️ Write your solution here
+
+```
+
+::: {.callout-tip collapse="true"}
+## 💡 Hint 1 — Where to start
+
+This requires two separate grouping operations.
+First: group by country to find the most recent non-missing Gini year per country.
+Second: group by region to compute summary statistics.
+Think about `filter(!is.na(...))`, `group_by()`, `slice_max()`, and `summarise()`.
+:::
+
+::: {.callout-tip collapse="true"}
+## 💡 Hint 2 — More detail
+
+To get the latest non-missing value per country, you can filter out NAs, group by country, and then take the row with the maximum year:
+
+``` r
+# Example: latest non-missing unemployment per country
+wdi |>
+  filter(!is.na(unemployment)) |>
+  group_by(country_name) |>
+  slice_max(year, n = 1) |>
+  ungroup()
+```
+
+Then pipe that result into a second `group_by(region) |> summarise(...)` step.
+Inside `summarise()`, use `median(..., na.rm = TRUE)`, `mean(..., na.rm = TRUE)`, and `n()`.
+:::
+
+------------------------------------------------------------------------
+
+## ✏️ Exercise 5 — Multi-step Pipeline with Visualisation: The Health-Wealth Relationship {#sec-ex5}
+
+**Topic:** Does money buy health?
+The Preston Curve
+
+The **Preston Curve** is one of the most replicated findings in demography: richer countries tend to have higher life expectancy, but the relationship is concave (diminishing returns).
+Your task is to reproduce a version of this classic chart.
+
+**Your task:**
+
+1.  Take the 2019 data (before pandemic disruptions).
+2.  Keep only countries with non-missing values for both `gdp_per_capita` and `life_expectancy`.
+3.  Remove countries with population under 1 million (small island states distort the picture).
+4.  Create a scatter plot with **log-scaled GDP per capita** on the x-axis and **life expectancy** on the y-axis. Colour the points by `income` group. Add a smooth trend line (not broken by group). Label at minimum the five richest and five poorest countries by name using `geom_text()` or `ggrepel`.
+5.  Add informative axis labels, a title, and a caption citing the data source.
+
+```{r}
+#| label: ex5-solution
+#| fig-width: 10
+#| fig-height: 6
+
+# ✏️ Write your solution here
+
+```
+
+::: {.callout-tip collapse="true"}
+## 💡 Hint 1 — Where to start
+
+This is a full pipeline: filter → mutate (optional log transform) → plot.
+For the scatter plot, `ggplot2` handles this naturally with `geom_point()`.
+The log scale can be applied with `scale_x_log10()` rather than transforming the variable itself.
+For country labels, look at the `ggrepel` package (`geom_text_repel()`), which avoids overlapping labels — install it if needed.
+:::
+
+::: {.callout-tip collapse="true"}
+## 💡 Hint 2 — More detail
+
+Basic scatter plot structure with a log x-axis and a smooth line:
+
+``` r
+# Example structure
+ggplot(data, aes(x = some_variable, y = other_variable, colour = group)) +
+  geom_point(alpha = 0.7) +
+  geom_smooth(aes(group = 1), method = "loess", colour = "grey30", se = FALSE) +
+  scale_x_log10(labels = scales::label_comma()) +
+  scale_colour_viridis_d(option = "plasma") +
+  labs(title = "...", x = "...", y = "...", caption = "Source: World Bank WDI")
+```
+
+To label only extreme countries, create a separate `label_data` object filtered to `slice_max(gdp_per_capita, n=5)` and `slice_min(gdp_per_capita, n=5)`, then add `geom_text(data = label_data, aes(label = country_name))`.
+:::
+
+------------------------------------------------------------------------
+
+# Part 2 — Weighted Survey Analysis with Pew 2024 {#sec-pew}
+
+In this section you will work with the **Pew Research Center Global Attitudes Spring 2024** survey.
+All estimates must use the survey weight variable to be nationally representative.
+We use the `srvyr` package, which brings familiar tidyverse syntax to weighted survey analysis.
+
+::: callout-important
+## ⚖️ Why weights are not optional
+
+The Pew sample is not a simple random sample.
+Some groups (e.g. younger adults, minority language speakers) are deliberately over- or under-sampled to ensure enough cases for subgroup analysis, and to compensate for differential non-response rates.
+The `weight` variable corrects for this so that your estimates represent the **national adult population**, not the people who happened to respond.
+
+Running `mean(pew$dem_satisfied, na.rm = TRUE)` would give you the *sample* proportion — which can be several percentage points away from the nationally representative estimate.
+Always use `pew_design` with `srvyr` functions.
+
+``` r
+# Correct — weighted
+pew_design |> summarise(survey_mean(dem_satisfied, na.rm = TRUE))
+
+# Wrong for inference — unweighted
+pew |> summarise(mean(dem_satisfied, na.rm = TRUE))
+```
+:::
+
+------------------------------------------------------------------------
+
+## ✏️ Exercise 6 — Weighted Frequencies: Democracy Satisfaction by Country {#sec-ex6}
+
+**Topic:** How satisfied are people with democracy?
+
+**Your task:** For each country in the dataset, calculate the **weighted percentage of respondents who are satisfied with democracy** (`dem_satisfied == 1`).
+Sort the results from highest to lowest satisfaction.
+Display as a clean table showing country, percentage satisfied, and the effective (unweighted) number of respondents per country.
+
+```{r}
+#| label: ex6-solution
+
+# ✏️ Write your solution here
+
+```
+
+::: {.callout-tip collapse="true"}
+## 💡 Hint 1 — Where to start
+
+You need to group the survey design object by country, then compute a weighted mean of a binary 0/1 variable.
+The weighted mean of a binary variable equals the weighted proportion of 1s.
+All `srvyr` summarise functions work inside `summarise()` just like regular `dplyr` — but use `survey_mean()` instead of `mean()`.
+:::
+
+::: {.callout-tip collapse="true"}
+## 💡 Hint 2 — More detail
+
+``` r
+# Example: weighted % saying religion is important, by country
+pew_design |>
+  group_by(country) |>
+  summarise(
+    pct_religious = survey_mean(religion_important, na.rm = TRUE),
+    n = unweighted(n())
+  ) |>
+  arrange(desc(pct_religious))
+```
+
+`survey_mean()` returns the proportion by default.
+Multiply by 100 for a percentage.
+`unweighted(n())` gives the actual number of survey respondents (not the weighted count).
+:::
+
+------------------------------------------------------------------------
+
+## ✏️ Exercise 7 — Weighted Crosstab: Press Freedom Importance by Age Group {#sec-ex7}
+
+**Topic:** Generational differences in attitudes toward press freedom
+
+**Your task:** Across all countries pooled, compute the **weighted percentage who consider press freedom important** (`press_freedom_imp == 1`) **separately for each age group** (`age_group`).
+Then break this down further by `gender`.
+Present the result as a crosstab with age groups in rows and gender in columns.
+Write two sentences interpreting the pattern.
+
+```{r}
+#| label: ex7-solution
+
+# ✏️ Write your solution here
+
+```
+
+::: {.callout-tip collapse="true"}
+## 💡 Hint 1 — Where to start
+
+This is a two-way breakdown: group by two variables simultaneously and compute a weighted proportion.
+The result will be in long format — think about how to pivot it into a wide crosstab with one column per gender.
+Look at `pivot_wider()` for reshaping.
+:::
+
+::: {.callout-tip collapse="true"}
+## 💡 Hint 2 — More detail
+
+``` r
+# Example: weighted proportions by two grouping variables, then pivot wide
+pew_design |>
+  filter(!is.na(age_group), !is.na(gender)) |>
+  group_by(age_group, gender) |>
+  summarise(pct = survey_mean(econ_good, na.rm = TRUE)) |>
+  select(age_group, gender, pct) |>
+  pivot_wider(names_from = gender, values_from = pct)
+```
+
+Multiply `pct` by 100 and round to 1 decimal before pivoting for a cleaner table.
+You can pass the result to `knitr::kable()` for nice formatting.
+:::
+
+------------------------------------------------------------------------
+
+## ✏️ Exercise 8 — Comparing Weighted Means: Economic Optimism Across Income Levels {#sec-ex8}
+
+**Topic:** Does economic context shape personal economic sentiment?
+
+Pew surveys multiple countries at very different income levels.
+This exercise asks whether people in richer countries feel better about their personal economic situation than people in poorer countries — after accounting for survey weights.
+
+**Your task:**
+
+1.  Join the Pew data with the WDI 2023 GDP per capita figures (match on country name — you will need to handle some name mismatches manually or use `stringr` to clean them).
+2.  Create a variable `gdp_group` that splits countries into three roughly equal groups by GDP per capita: Low, Middle, High (use `ntile()` or manual cut-points).
+3.  Compute the **weighted percentage reporting a good personal economic situation** (`econ_good == 1`) by `gdp_group`.
+4.  Visualise the result as a simple bar chart with error bars (use the standard error returned by `survey_mean()`).
+
+```{r}
+#| label: ex8-solution
+#| fig-width: 7
+#| fig-height: 4
+
+# ✏️ Write your solution here
+
+```
+
+::: {.callout-tip collapse="true"}
+## 💡 Hint 1 — Where to start
+
+This requires a join between two datasets.
+The challenge is that country names in Pew may not exactly match those in WDI (e.g. "United States" vs "United States of America").
+Think about which join function to use, and how to check which countries failed to match.
+For the visualisation, `geom_col()` with `geom_errorbar()` is the standard approach for bar charts with confidence intervals.
+:::
+
+::: {.callout-tip collapse="true"}
+## 💡 Hint 2 — More detail
+
+``` r
+# Get WDI country names for a specific year
+wdi_2022 <- wdi |>
+  filter(year == 2022, !is.na(gdp_per_capita)) |>
+  select(country_name, gdp_per_capita)
+
+# Left join — rows in pew without a match get NA
+pew_joined <- pew |>
+  left_join(wdi_2022, by = c("country" = "country_name"))
+
+# Check which countries didn't match
+pew_joined |> filter(is.na(gdp_per_capita)) |> distinct(country)
+```
+
+For the error bars, `survey_mean()` returns both `_mean` and `_se` columns when you name the output:
+
+``` r
+pew_design |>
+  group_by(gdp_group) |>
+  summarise(result = survey_mean(econ_good, na.rm = TRUE, vartype = "se"))
+# This gives result (the mean) and result_se (the standard error)
+```
+
+Use `geom_errorbar(aes(ymin = result - 1.96*result_se, ymax = result + 1.96*result_se))`.
+:::
+
+------------------------------------------------------------------------
+
+## ✏️ Exercise 9 — Weighted Subgroup Analysis: Religion and Economic Views {#sec-ex9}
+
+**Topic:** Does religiosity correlate with economic optimism?
+
+**Your task:** Among European countries only (select at least 5 countries from the Pew data that are clearly European), test whether **religiously important respondents** differ from **non-religious respondents** in their assessment of the **personal economic situation** (`econ_good`).
+Compute the weighted proportions for each religious group separately **per country**, then visualise the comparison as a **grouped bar chart** or a **dot plot with connecting lines** (one dot per country, connected across religious groups).
+Write a short interpretation.
+
+```{r}
+#| label: ex9-solution
+#| fig-width: 9
+#| fig-height: 5
+
+# ✏️ Write your solution here
+
+```
+
+::: {.callout-tip collapse="true"}
+## 💡 Hint 1 — Where to start
+
+Filter `pew_design` to European countries first using `filter(country %in% c(...))`.
+Then group by two variables: country and religiosity.
+Compute the weighted proportion of `econ_good` for each combination.
+A dot plot with lines connecting the two religiosity dots within each country is effective — think about `geom_point()` and `geom_line()`, with country on one axis and proportion on the other.
+:::
+
+::: {.callout-tip collapse="true"}
+## 💡 Hint 2 — More detail
+
+``` r
+# Compute weighted proportions by two grouping variables
+result <- pew_design |>
+  filter(country %in% c("Germany", "France", "Poland",
+                         "Sweden", "Spain", "Hungary"),
+         !is.na(religion_important), !is.na(econ_good)) |>
+  group_by(country, religion_important) |>
+  summarise(pct = survey_mean(econ_good, na.rm = TRUE)) |>
+  mutate(religious_label = ifelse(religion_important == 1,
+                                  "Religion important", "Not important"))
+```
+
+For the connected dot plot:
+
+``` r
+ggplot(result, aes(x = pct, y = reorder(country, pct),
+                   colour = religious_label)) +
+  geom_line(aes(group = country), colour = "grey70") +
+  geom_point(size = 4) +
+  scale_x_continuous(labels = scales::percent) +
+  labs(colour = NULL)
+```
+:::
+
+------------------------------------------------------------------------
+
+## ✏️ Exercise 10 — Advanced: A Country Ranking Dashboard {#sec-ex10}
+
+**Topic:** Building a multi-indicator summary
+
+**Your task:** Produce a single summary table that ranks all Pew countries by **four weighted indicators simultaneously**:
+
+1.  `dem_satisfied` — % satisfied with democracy
+2.  `press_freedom_imp` — % valuing press freedom
+3.  `econ_good` — % with positive economic outlook
+4.  `religion_important` — % for whom religion is important
+
+For each indicator, compute the weighted national proportion.
+Then add a `composite_score` column defined as the **mean of the first three indicators** (democracy satisfaction + press freedom + economic optimism) — treating this as a rough "liberal-democratic optimism index".
+Sort by `composite_score` descending.
+
+Finally, visualise the result as a **heatmap** where rows are countries, columns are the four indicators, and the fill colour encodes the weighted percentage.
+Use a diverging colour scale centred at 50%.
+
+```{r}
+#| label: ex10-solution
+#| fig-width: 10
+#| fig-height: 7
+
+# ✏️ Write your solution here
+
+```
+
+::: {.callout-tip collapse="true"}
+## 💡 Hint 1 — Where to start
+
+This requires four separate `summarise()` calls (one per indicator) or a clever `across()` trick.
+The cleanest approach is to compute each indicator in one `group_by(country) |> summarise(...)` call.
+Then reshape the result to long format for the heatmap using `pivot_longer()`.
+For `geom_tile()`, the fill aesthetic should be the weighted proportion, with a diverging palette.
+:::
+
+::: {.callout-tip collapse="true"}
+## 💡 Hint 2 — More detail
+
+Computing multiple indicators in one `summarise()` call:
+
+``` r
+summary_table <- pew_design |>
+  group_by(country) |>
+  summarise(
+    dem_sat   = survey_mean(dem_satisfied,     na.rm = TRUE),
+    press_fr  = survey_mean(press_freedom_imp, na.rm = TRUE),
+    econ_opt  = survey_mean(econ_good,         na.rm = TRUE),
+    religious = survey_mean(religion_important, na.rm = TRUE)
+  ) |>
+  # keep only the point estimates, drop SE columns
+  select(country, dem_sat, press_fr, econ_opt, religious)
+```
+
+For the heatmap, pivot to long format first:
+
+``` r
+summary_long <- summary_table |>
+  pivot_longer(-country, names_to = "indicator", values_to = "pct")
+
+ggplot(summary_long, aes(x = indicator, y = reorder(country, pct),
+                          fill = pct * 100)) +
+  geom_tile() +
+  scale_fill_gradient2(low = "#c84b2f", mid = "#f5f5f5",
+                        high = "#2a6b6e", midpoint = 50) +
+  geom_text(aes(label = paste0(round(pct*100, 0), "%")),
+            size = 3, colour = "grey20") +
+  labs(fill = "%", x = NULL, y = NULL,
+       title = "Weighted national estimates — Pew 2024 Global Attitudes") +
+  theme_minimal()
+```
+:::
+
+------------------------------------------------------------------------
+
+# Submission Checklist {.unnumbered}
+
+Before submitting, check each item:
+
+-   [ ] All 10 exercises have code in the ✏️ chunks
+-   [ ] The document renders to HTML without errors (`Render` button or Ctrl+Shift+K)
+-   [ ] Exercises 5, 8, 9, and 10 include a plot
+-   [ ] Exercises 7, 9, and 10 include a written interpretation (2–3 sentences)
+-   [ ] You are submitting the rendered **`.html`** file, not the `.qmd`
+-   [ ] Your name and student ID appear on the rendered document (add them to the `author:` field in the YAML header above)
+
+------------------------------------------------------------------------
+
+*Data sources: World Bank World Development Indicators (CC-BY 4.0) · Pew Research Center Global Attitudes Spring 2024 Survey · Corvinus University of Budapest, Survey Analytics and Big Data, 2025/2026*
