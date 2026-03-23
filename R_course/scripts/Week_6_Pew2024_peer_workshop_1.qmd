@@ -1,0 +1,1055 @@
+---
+title: "Global Attitudes Workshop"
+subtitle: "Peer Group Analysis with Pew Spring 2024 Data"
+author: "Bence Ságvári"
+date: today
+format:
+  html:
+    toc: true
+    toc-float: true
+    toc-depth: 2
+    number-sections: false
+    embed-resources: true
+    theme: cosmo
+    code-fold: false
+    df-print: paged
+execute:
+  echo: true
+  eval: false
+  warning: false
+  message: false
+---
+
+```{r}
+#| label: setup
+#| eval: true
+#| echo: false
+# Hidden initialisation chunk — students can ignore this.
+```
+
+---
+
+# Before You Start {.unnumbered}
+
+::: {.callout-important}
+## 👥 How this session works — read before opening RStudio
+
+This is a **90-minute group workshop**. You work in groups of 2–3. Every group has:
+
+- **One Navigator** — the person with more R experience. Your job is to *explain*, not to type. Read the code out loud, explain what each line does, and let your partner(s) drive. Resist the urge to grab the keyboard.
+- **One or two Drivers** — you type the code. If you don't understand a line, ask your Navigator before running it. Your goal is to understand every line, not just copy it.
+
+**Switch roles** at the halfway point (roughly after Exercise 3).
+
+There are **6 exercises** designed for 90 minutes. Exercises 1–3 are more guided; 4–6 give you more freedom. Don't rush — a thoughtful answer to 4 exercises is worth more than a hurried pass through all 6.
+
+**The output of each exercise is:**
+
+1. A working plot or table that renders in the document
+2. 2–3 written sentences of interpretation in the **💬 Your group's interpretation** box
+3. A brief discussion — use the discussion questions as a prompt
+
+You do **not** need to submit a rendered HTML for this session. Work together, discuss, and be ready to share one finding with the class at the end.
+
+**Tip for running code:** Use the green ▶ button or **Ctrl+Shift+Enter** to run a single chunk.  
+Use the **⬇ Run All Chunks Above** button whenever you see an error — it reloads the whole environment.
+:::
+
+---
+
+# Session Setup {#sec-setup}
+
+::: {.callout-note collapse="true"}
+## 📦 What these packages do — Navigator, explain this to your Driver
+
+| Package | What it does in this notebook |
+|---------|------------------------------|
+| `tidyverse` | Filter rows, create new columns, make plots with ggplot2 |
+| `haven` | Read the Pew `.sav` (SPSS) file — it stores value labels alongside numbers |
+| `srvyr` | Apply survey weights correctly — without this, our percentages are wrong |
+| `knitr` | Format tables neatly when the document renders |
+| `scales` | Format axis labels as percentages |
+
+**Navigator talking point:** Ask your Driver — *why can't we just use `mean()` on survey data? What goes wrong?*
+:::
+
+```{r}
+#| label: load-packages
+#| eval: true
+
+# ── Install any packages that are not yet on this machine ────────────────────
+# installed.packages() returns a matrix of everything currently installed.
+# We check which of our required packages are missing, then install only those.
+# This avoids reinstalling packages that are already present.
+packages <- c("tidyverse", "haven", "srvyr", "knitr", "scales")
+missing  <- packages[!packages %in% installed.packages()[, "Package"]]
+if (length(missing) > 0) install.packages(missing)
+
+# ── Load all packages into the current session ───────────────────────────────
+# lapply() applies library() to every element of the vector.
+# invisible() suppresses the list of return values (keeps the console clean).
+# character.only = TRUE is needed because library() normally expects an unquoted name.
+invisible(lapply(packages, library, character.only = TRUE))
+
+# ── Set a default ggplot2 theme for all plots in this document ────────────────
+# theme_set() applies globally — we don't need to repeat theme_minimal() in every plot.
+# base_size = 12 sets the default font size for axis labels and titles.
+theme_set(theme_minimal(base_size = 12))
+```
+
+```{r}
+#| label: load-data
+#| eval: true
+#| cache: true
+
+# ── Download the Pew Spring 2024 Global Attitudes dataset ─────────────────────
+# The data is hosted on the course SharePoint. We download it to a temporary
+# file so it doesn't clutter your project folder.
+# tempfile() creates a path to a temporary location; fileext = ".sav" ensures
+# the file is recognised as SPSS format.
+data_link <- "https://tkmtahu-my.sharepoint.com/:u:/g/personal/sagvari_bence_tk_hu/IQCc8k4_cII9TIlJmZQULNd6ATVy7R_EEkU5AwRBspfjP_A?download=1"
+tmp <- tempfile(fileext = ".sav")
+
+# mode = "wb" means "write binary" — required for non-text files like .sav
+download.file(data_link, tmp, mode = "wb", quiet = TRUE)
+
+# haven::read_spss() reads SPSS .sav files.
+# It preserves both the numeric codes AND the human-readable labels.
+pew <- haven::read_spss(tmp)
+
+# Quick sanity check — print the dimensions
+cat("Dataset loaded:", nrow(pew), "respondents,", ncol(pew), "variables\n")
+```
+
+```{r}
+#| label: clean-data
+#| eval: true
+
+# ── Country codes for Europe + Canada ────────────────────────────────────────
+# In the Pew dataset, 'country' is stored as a numeric code.
+# We list the codes we want to keep (see data dictionary for the full list).
+eu_can_codes <- c(2,   # Canada
+                  3,   # France
+                  4,   # Germany
+                  5,   # Greece
+                  6,   # Hungary
+                  7,   # Italy
+                  8,   # Netherlands
+                  9,   # Poland
+                  10,  # Spain
+                  11,  # Sweden
+                  12)  # United Kingdom
+
+# ── Build the cleaned analysis dataset ───────────────────────────────────────
+pew_clean <- pew |>
+
+  # Keep only European + Canadian respondents
+  filter(country %in% eu_can_codes) |>
+
+  # zap_missing() converts SPSS "system missing" and user-defined missing codes
+  # (e.g. 8 = "Don't know", 9 = "Refused") into proper R NA values.
+  # Without this step, respondents who refused would appear to have answered "9"
+  # on a 4-point scale, completely distorting any calculation.
+  zap_missing() |>
+
+  mutate(
+
+    # ── Convert numeric codes to readable factor labels ──────────────────────
+    # as_factor() uses the value labels stored in the SPSS file.
+    # Result: country becomes "Canada", "France", etc. instead of 2, 3, etc.
+    country_f = as_factor(country),
+    gender_f  = as_factor(gender),
+
+    # ── Reverse-code the attitude scales ─────────────────────────────────────
+    # Most Pew scales run 1 = most positive … 4 = most negative.
+    # We reverse them so that HIGHER values always mean MORE of the concept.
+    # Formula: reversed = (max_value + 1) - original
+    # Example: dem_sat_r = 5 - satisfied_democracy
+    #   Original 1 (Very satisfied)     → reversed 4
+    #   Original 4 (Not at all satisfied) → reversed 1
+
+    # Democracy satisfaction (original: 1=Very satisfied … 4=Not at all)
+    dem_sat_r   = 5 - satisfied_democracy,  # reversed: 4 = most satisfied
+
+    # National economic situation (original: 1=Very good … 4=Very bad)
+    econ_r      = 5 - econ_sit,             # reversed: 4 = economy very good
+
+    # Importance of religion (original: 1=Very important … 4=Not at all)
+    rel_imp_r   = 5 - religion_import,      # reversed: 4 = very important
+
+    # Press freedom importance (original: 1=Very important … 4=Not at all)
+    press_imp_r = 5 - press_freedom,        # reversed: 4 = very important
+
+    # Support for autocracy (original: 1=Very good … 4=Very bad way to govern)
+    autocracy_r = 5 - polsys_autocracy,     # reversed: 4 = strong support
+
+    # Support for representative democracy (original: 1=Very good … 4=Very bad)
+    republic_r  = 5 - polsys_republic,      # reversed: 4 = strong support
+
+    # ── Create binary (0/1) indicator variables ───────────────────────────────
+    # A binary variable's mean = the proportion of 1s.
+    # as.integer() converts TRUE/FALSE to 1/0.
+
+    # 1 if respondent is satisfied or very satisfied with democracy (codes 1 or 2)
+    satisfied   = as.integer(satisfied_democracy <= 2),
+
+    # 1 if respondent thinks children will be financially WORSE OFF than parents
+    pessimist   = as.integer(children_betteroff == 2),
+
+    # 1 if respondent would be comfortable if their child came out as gay/lesbian
+    gay_comfort = as.integer(child_gay == 1),
+
+    # 1 if religion is "Very important" in the respondent's life (code 1 only)
+    rel_high    = as.integer(religion_import == 1),
+
+    # Political self-placement on a 0 (extreme left) to 6 (extreme right) scale
+    # We just rename it for clarity; no transformation needed
+    ideology    = political_scale2
+  )
+
+# ── Create the survey design object ─────────────────────────────────────────
+# as_survey_design() wraps pew_clean in a special structure that "remembers"
+# which column contains the survey weights.
+# After this step, every estimate computed with survey_mean() or survey_total()
+# will automatically apply the weights — no need to pass w = weight every time.
+# ids = 1 means "no cluster variable" (Pew does not release one for public use).
+pew_svy <- pew_clean |>
+  as_survey_design(ids = 1, weights = weight)
+
+cat("Clean dataset ready:", nrow(pew_clean), "respondents across",
+    n_distinct(pew_clean$country_f), "countries\n")
+```
+
+::: {.callout-tip collapse="true"}
+## 🧭 Navigator: quick orientation before Exercise 1
+
+Run `glimpse(pew_clean)` in the console. Point out to your Driver:
+
+- The `_r` columns are reversed scales — higher always means "more" of the concept
+- The binary columns (`satisfied`, `pessimist`, `gay_comfort`) are 0/1 — the mean of a 0/1 variable is the proportion
+- `pew_svy` is the survey design object — use this in all `survey_mean()` calls, not `pew_clean`
+:::
+
+---
+
+# Exercise 1 — Does Weighting Actually Matter? {#ex1}
+
+::: {.callout-note}
+## 🗺 Mission · ⏱ ~12 min
+
+Surveys are not random samples of the population — some groups respond more readily than others. The `weight` variable corrects for this. But how much does it actually change our estimates?
+
+**Your task:** Compare the *unweighted* and *weighted* mean democracy satisfaction score for each country. Find out which country's estimate changes the most when weights are applied.
+:::
+
+::: {.callout-warning collapse="true"}
+## 💡 Hint — Navigator reads this aloud, Driver types
+
+`mean()` ignores weights and treats every respondent equally.  
+`weighted.mean(x, w = weight)` gives each respondent a weight proportional to how many people in the real population they represent.  
+To compare both: compute them in one `summarise()` call using `group_by(country_f)`.
+:::
+
+```{r}
+#| label: ex1-compare-weights
+
+# ── Compare unweighted vs. weighted means by country ─────────────────────────
+# We use pew_clean (not pew_svy) here so we can call both mean() and
+# weighted.mean() side by side in the same summarise() call.
+
+weight_check <- pew_clean |>
+
+  # Drop rows where satisfaction or weight is missing
+  filter(!is.na(dem_sat_r), !is.na(weight)) |>
+
+  # Compute one row per country
+  group_by(country_f) |>
+
+  summarise(
+
+    # Unweighted mean: every respondent counts equally, regardless of weight
+    unweighted = mean(dem_sat_r, na.rm = TRUE),
+
+    # Weighted mean: each respondent is scaled by their survey weight
+    # w = weight tells R which column contains the weight values
+    weighted   = weighted.mean(dem_sat_r, w = weight, na.rm = TRUE),
+
+    # The difference between the two — positive means weighting pushed estimate up
+    diff       = weighted - unweighted,
+
+    # n() counts the number of rows (respondents) in each group
+    n          = n(),
+
+    .groups    = "drop"  # remove the grouping after summarise (good practice)
+
+  ) |>
+
+  # Sort by absolute difference — countries where weighting matters most appear first
+  arrange(desc(abs(diff)))
+
+# kable() formats the data frame as a clean HTML table
+kable(weight_check,
+      digits    = 3,
+      col.names = c("Country", "Unweighted mean", "Weighted mean", "Difference", "N"),
+      caption   = "Effect of weighting on democracy satisfaction (scale: 1=Not at all satisfied, 4=Very satisfied)")
+```
+
+```{r}
+#| label: ex1-plot
+
+# ── Scatter plot: weighted vs. unweighted mean per country ────────────────────
+# Points ON the dashed diagonal line = weighting made no difference.
+# Points BELOW the line = weighting pushed the estimate down.
+# Points ABOVE the line = weighting pushed the estimate up.
+
+ggplot(weight_check,
+       aes(x = unweighted,    # unweighted mean on the horizontal axis
+           y = weighted,      # weighted mean on the vertical axis
+           label = country_f  # country name used by geom_text below
+       )) +
+
+  # Draw a y = x reference line — any point on this line has diff = 0
+  geom_abline(slope = 1, intercept = 0,
+              linetype = "dashed", colour = "grey60") +
+
+  # One dot per country; size encodes the magnitude of the difference
+  geom_point(aes(size = abs(diff)),
+             colour = "#1B3A5C", alpha = 0.8) +
+
+  # Country labels, shifted slightly upward so they don't overlap the dots
+  geom_text(nudge_y = 0.012, size = 3.5, colour = "grey30") +
+
+  # scale_size_area() maps the size aesthetic to dot area (not radius),
+  # which is more perceptually accurate. guide = "none" hides the size legend.
+  scale_size_area(max_size = 9, guide = "none") +
+
+  labs(
+    title    = "Weighted vs. unweighted democracy satisfaction",
+    subtitle = "Points off the dashed line = weighting changes the estimate",
+    x        = "Unweighted mean",
+    y        = "Weighted mean",
+    caption  = "Source: Pew Research Center Global Attitudes Spring 2024\nScale: 1 = Not at all satisfied, 4 = Very satisfied"
+  )
+```
+
+::: {.callout-caution}
+## 💬 Your group's interpretation — write 2–3 sentences here
+
+*Which country's estimate changes the most? Are the differences large enough to matter substantively? What might explain why some countries are further from the diagonal than others?*
+
+**Group answer:** *[write here]*
+:::
+
+::: {.callout-tip collapse="true"}
+## 🚀 Go further — for groups that finish early
+
+Repeat the comparison but for **economic pessimism** (`pessimist`). Does weighting matter more or less for this variable? Can you explain why?
+:::
+
+---
+
+# Exercise 2 — Who Trusts Their Democracy? {#ex2}
+
+::: {.callout-note}
+## 🗺 Mission · ⏱ ~15 min
+
+Democracy satisfaction varies enormously across Europe. Sweden and the Netherlands are near the top; Greece and France near the bottom. But are these differences explained by *where* people live, or by *who* they are — their gender, for instance?
+
+**Your task:**  
+1. Build a ranked bar chart of weighted democracy satisfaction by country, with 95% confidence interval error bars.  
+2. Then break it down by gender — does the gender gap look the same in every country?
+:::
+
+::: {.callout-warning collapse="true"}
+## 💡 Hint — Navigator reads this aloud
+
+`survey_mean(x, na.rm = TRUE)` returns both the weighted proportion AND its standard error in one call.  
+When you assign it like `pct_satisfied = survey_mean(...)`, srvyr automatically creates two columns: `pct_satisfied` (the estimate) and `pct_satisfied_se` (the standard error).  
+A 95% confidence interval is: estimate ± 1.96 × SE.
+
+For the gender breakdown: add `gender_f` to the `group_by()` call. Use `facet_wrap(~gender_f)` or `aes(fill = gender_f)` with `position = "dodge"`.
+:::
+
+```{r}
+#| label: ex2-country-ranking
+
+# ── Weighted % satisfied by country, with standard errors ────────────────────
+# We use pew_svy (the survey design object) so that survey_mean() applies
+# weights and computes design-correct standard errors automatically.
+
+dem_by_country <- pew_svy |>
+
+  # Drop rows without a valid satisfaction response
+  filter(!is.na(satisfied)) |>
+
+  # One group per country
+  group_by(country_f) |>
+
+  summarise(
+    # survey_mean() returns the weighted proportion.
+    # Multiplying by 100 converts to percentage — srvyr multiplies BOTH
+    # the estimate and the SE column by 100 in a single step.
+    # Result: two new columns named `pct_satisfied` and `pct_satisfied_se`
+    pct_satisfied = survey_mean(satisfied, na.rm = TRUE, vartype = "se") * 100,
+    .groups       = "drop"
+  ) |>
+
+  # Sort highest satisfaction first (top of the bar chart = Sweden)
+  arrange(desc(pct_satisfied))
+
+# Print as a table with three columns: Country | % Satisfied | SE
+kable(dem_by_country,
+      digits    = 1,
+      col.names = c("Country", "% Satisfied", "SE (pp)"),
+      caption   = "% satisfied or very satisfied with democracy (weighted)")
+```
+
+```{r}
+#| label: ex2-bar-chart
+
+# ── Horizontal bar chart with 95% confidence interval error bars ──────────────
+
+ggplot(dem_by_country,
+       aes(
+         # reorder() sorts countries by their satisfaction percentage
+         # so the highest bar appears at the top after coord_flip()
+         x = reorder(country_f, pct_satisfied),
+         y = pct_satisfied
+       )) +
+
+  # Filled bars
+  geom_col(fill = "#1B3A5C", width = 0.7) +
+
+  # Error bars showing the 95% confidence interval.
+  # The CI is computed as: estimate ± 1.96 × SE.
+  # pct_satisfied_se is already in percentage points (×100 was applied above),
+  # so we do NOT multiply it by 100 again here.
+  geom_errorbar(
+    aes(
+      ymin = pct_satisfied - 1.96 * pct_satisfied_se,  # lower bound of 95% CI
+      ymax = pct_satisfied + 1.96 * pct_satisfied_se   # upper bound of 95% CI
+    ),
+    width = 0.25, colour = "grey50"
+  ) +
+
+  # Percentage labels just to the right of each bar
+  geom_text(aes(label = paste0(round(pct_satisfied, 0), "%")),
+            hjust = -0.2, size = 3.5) +
+
+  # Flip axes: countries on the y-axis, percentages on the x-axis
+  coord_flip() +
+
+  scale_y_continuous(limits = c(0, 100)) +
+
+  labs(
+    title    = "Satisfaction with how democracy works",
+    subtitle = "% 'Very' or 'Somewhat' satisfied — error bars show 95% CI",
+    x        = NULL, y = "Percentage",
+    caption  = "Source: Pew Research Center Global Attitudes Spring 2024"
+  )
+```
+
+```{r}
+#| label: ex2-gender-gap
+
+# ── ✏️ Your turn — break down satisfaction by gender ─────────────────────────
+# Navigator: explain what needs to change in the group_by() call.
+# Adding gender_f as a second grouping variable gives one row per
+# country × gender combination.
+
+# Driver: modify the code below
+# 1. Add gender_f to group_by()
+# 2. Filter out rows where gender_f is NA (use !is.na(gender_f))
+# 3. Use facet_wrap(~gender_f) OR aes(fill = gender_f) with position = "dodge"
+
+dem_by_gender <- pew_svy |>
+  filter(!is.na(satisfied), !is.na(gender_f)) |>
+  group_by(country_f, gender_f) |>      # group by BOTH country and gender
+  summarise(
+    pct_satisfied = survey_mean(satisfied, na.rm = TRUE, vartype = "se") * 100,
+    .groups       = "drop"
+  )
+
+# ── YOUR PLOT CODE HERE ───────────────────────────────────────────────────────
+# Suggested structure:
+# ggplot(dem_by_gender, aes(x = reorder(country_f, pct_satisfied),
+#                           y = pct_satisfied, fill = gender_f)) +
+#   geom_col(position = "dodge", width = 0.7) +
+#   coord_flip() + ...
+```
+
+::: {.callout-caution}
+## 💬 Your group's interpretation — write 2–3 sentences here
+
+*Which country has the highest democracy satisfaction? How large is the gender gap, and is it consistent across countries? Does anything in the results surprise you?*
+
+**Group answer:** *[write here]*
+:::
+
+::: {.callout-tip collapse="true"}
+## 🚀 Go further
+
+Add error bars to the gender comparison. In which countries is the gender gap statistically meaningful — i.e. the 95% CI bands for men and women do not overlap?
+:::
+
+---
+
+# Exercise 3 — The Economic Mood {#ex3}
+
+::: {.callout-note}
+## 🗺 Mission · ⏱ ~15 min
+
+Europe is experiencing persistent economic anxiety. But pessimism varies enormously — Poland is relatively optimistic, France is deeply pessimistic. In this exercise you will visualise both the **current economic situation** and **intergenerational pessimism** side by side, and look for countries where the two tell different stories.
+
+**Your task:**  
+1. Build a grouped bar chart: one colour for % rating economy as good, another for % saying children will be worse off.  
+2. Look for countries where the two patterns diverge — high economic satisfaction but also high pessimism, or vice versa.
+:::
+
+::: {.callout-warning collapse="true"}
+## 💡 Hint — Navigator reads this aloud
+
+Compute both variables in a single `summarise()` call, then use `pivot_longer()` to reshape the data from wide to long format — one row per country × indicator combination. This is the standard preparation step before `facet_wrap()` or grouped bars.
+:::
+
+```{r}
+#| label: ex3-economic-mood
+
+# ── Compute two economic indicators simultaneously ────────────────────────────
+# We compute both indicators in one summarise() call to keep the code compact.
+# Each survey_mean() call returns TWO columns: the estimate and the SE.
+# With two calls we get four new columns total:
+#   pct_econ_good, pct_econ_good_se, pct_pessimist, pct_pessimist_se
+
+econ_mood <- pew_svy |>
+
+  filter(!is.na(weight)) |>
+
+  group_by(country_f) |>
+
+  summarise(
+
+    # % who rate the current economic situation as "Very good" or "Somewhat good"
+    # econ_sit codes: 1 = Very good, 2 = Somewhat good → condition: <= 2
+    pct_econ_good = survey_mean(econ_sit <= 2,           na.rm = TRUE, vartype = "se") * 100,
+
+    # % who expect their children to be WORSE OFF financially than their parents
+    # children_betteroff codes: 1 = Better off, 2 = Worse off, 3 = Same → condition: == 2
+    pct_pessimist = survey_mean(children_betteroff == 2, na.rm = TRUE, vartype = "se") * 100,
+
+    .groups = "drop"
+
+  ) |>
+
+  arrange(desc(pct_econ_good))  # sort by economic satisfaction (highest first)
+
+# Print the full table (SE columns included)
+kable(econ_mood,
+      digits    = 1,
+      col.names = c("Country",
+                    "% Economy good", "SE",
+                    "% Kids worse off", "SE"),
+      caption   = "Economic attitudes by country (weighted %)")
+```
+
+```{r}
+#| label: ex3-plot
+
+# ── Reshape to long format for a grouped bar chart ────────────────────────────
+# Currently econ_mood is in WIDE format: one row per country, two value columns.
+# ggplot2 wants LONG format for grouped/faceted bars: one row per country × indicator.
+# pivot_longer() does this transformation.
+
+econ_long <- econ_mood |>
+
+  # Keep only the point-estimate columns (drop the SE columns for the plot)
+  select(country_f, pct_econ_good, pct_pessimist) |>
+
+  pivot_longer(
+    cols      = c(pct_econ_good, pct_pessimist), # the two columns to stack
+    names_to  = "indicator",   # new column that stores which variable this row came from
+    values_to = "pct"          # new column that stores the actual percentage value
+  ) |>
+
+  # Replace the raw column names with readable labels for the chart legend
+  mutate(
+    indicator = case_match(
+      indicator,
+      "pct_econ_good" ~ "% Rating economy as good",
+      "pct_pessimist" ~ "% Expecting children to be worse off"
+    )
+  )
+
+ggplot(econ_long,
+       aes(
+         # Sort countries so the most economically satisfied appears at the top
+         x    = reorder(country_f, pct),
+         y    = pct,
+         fill = indicator   # colour encodes which indicator this bar represents
+       )) +
+
+  # position = "dodge" places bars for the same country side by side (not stacked)
+  geom_col(position = "dodge", width = 0.7) +
+
+  coord_flip() +  # flip axes so country names are readable on the y-axis
+
+  # Custom colours: teal for economic optimism, red for pessimism
+  scale_fill_manual(values = c("#1A7A7A", "#C0392B")) +
+
+  scale_y_continuous(
+    limits = c(0, 100),
+    # label_percent(scale = 1) formats numbers as "50%" without multiplying by 100
+    labels = scales::label_percent(scale = 1)
+  ) +
+
+  labs(
+    title    = "Current economic mood vs. intergenerational pessimism",
+    subtitle = "Weighted percentages — Pew Spring 2024",
+    x        = NULL, y = NULL, fill = NULL,
+    caption  = "Source: Pew Research Center Global Attitudes Spring 2024"
+  ) +
+
+  theme(legend.position = "top")
+```
+
+::: {.callout-caution}
+## 💬 Your group's interpretation — write 2–3 sentences here
+
+*Which country shows the biggest gap between current economic mood and intergenerational pessimism? What might explain this divergence? Is France's pessimism surprising given its economic situation?*
+
+**Group answer:** *[write here]*
+:::
+
+---
+
+> ### ⏸ Halfway pause — switch roles now
+>
+> If you haven't switched Driver and Navigator yet, do it now. The new Navigator should look back at Exercises 1–3 and explain to the new Driver: what does `survey_mean()` do, and why do we use `pew_svy` instead of `pew_clean`?
+
+---
+
+# Exercise 4 — Religion and Tolerance {#ex4}
+
+::: {.callout-note}
+## 🗺 Mission · ⏱ ~15 min
+
+Are more religious countries also less socially tolerant? This is a classic question in the sociology of religion, and the Pew data lets us test it directly across 11 European countries and Canada.
+
+**Your task:**  
+1. For each country, compute: (a) % saying religion is very important; (b) % comfortable with having a gay child.  
+2. Make a **scatter plot** with one dot per country and country name labels.  
+3. Discuss: is the relationship linear? Are there outliers?
+:::
+
+::: {.callout-warning collapse="true"}
+## 💡 Hint — Navigator reads this aloud
+
+Use `group_by(country_f) |> summarise(...)` on `pew_svy`.  
+For the scatter: `geom_point()` + `geom_text(aes(label = country_f), nudge_y = 1.5)`.  
+Add a linear trend line with `geom_smooth(method = "lm", se = FALSE)`.  
+The key interpretation question: does the trend hold for *all* countries, or is it driven by one or two outliers?
+:::
+
+```{r}
+#| label: ex4-religion-tolerance
+
+# ── Compute religiosity and tolerance indicators by country ───────────────────
+# Both variables are binary (0/1), so survey_mean() gives the weighted proportion.
+# rel_high = 1 if religion is "Very important" (religion_import == 1)
+# gay_comfort = 1 if respondent would be comfortable if child came out as gay
+
+rel_tol <- pew_svy |>
+
+  filter(!is.na(weight)) |>
+
+  group_by(country_f) |>
+
+  summarise(
+
+    # Weighted % for whom religion is "very important" in daily life
+    pct_religious   = survey_mean(rel_high,    na.rm = TRUE, vartype = "se") * 100,
+
+    # Weighted % who would be comfortable if a child came out as gay/lesbian
+    pct_gay_comfort = survey_mean(gay_comfort, na.rm = TRUE, vartype = "se") * 100,
+
+    .groups = "drop"
+
+  )
+
+# ── Scatter plot: one dot per country ────────────────────────────────────────
+ggplot(rel_tol,
+       aes(
+         x     = pct_religious,    # religiosity on the horizontal axis
+         y     = pct_gay_comfort,  # tolerance on the vertical axis
+         label = country_f         # used by geom_text for country labels
+       )) +
+
+  # Draw a linear regression line (method = "lm") without confidence band (se = FALSE)
+  # This shows the overall trend across countries
+  geom_smooth(method = "lm", se = FALSE,
+              colour = "grey70", linetype = "dashed") +
+
+  # One dot per country, navy colour
+  geom_point(size = 3, colour = "#1B3A5C") +
+
+  # Country name labels, shifted slightly upward to avoid overlapping the dots
+  geom_text(nudge_y = 2, size = 3.5, colour = "grey30") +
+
+  # Format x-axis as percentages (scale = 1 means no ×100 conversion)
+  scale_x_continuous(
+    labels = scales::label_percent(scale = 1),
+    limits = c(0, 40)
+  ) +
+  scale_y_continuous(
+    labels = scales::label_percent(scale = 1),
+    limits = c(0, 25)
+  ) +
+
+  labs(
+    title    = "Religion importance vs. comfort with LGBTQ+ family members",
+    subtitle = "Each dot = one country — weighted estimates",
+    x        = "% saying religion is 'very important' in life",
+    y        = "% comfortable if a child came out as gay/lesbian",
+    caption  = "Source: Pew Research Center Global Attitudes Spring 2024"
+  )
+```
+
+::: {.callout-caution}
+## 💬 Your group's interpretation — write 2–3 sentences here
+
+*Describe the overall pattern. Are there any outliers — countries that don't fit the trend? What does this suggest about the relationship between religiosity and social tolerance in Europe?*
+
+**Group answer:** *[write here]*
+:::
+
+::: {.callout-tip collapse="true"}
+## 🚀 Go further
+
+Add a third dimension: colour the points by `pct_pessimist` from Exercise 3. Does economic anxiety independently predict lower tolerance, above and beyond religiosity?
+
+```r
+# Step 1: join rel_tol with econ_mood (keep only point estimates, drop SE cols)
+rel_tol_eco <- rel_tol |>
+  left_join(
+    econ_mood |> select(country_f, pct_pessimist),
+    by = "country_f"
+  )
+
+# Step 2: add colour aesthetic
+# ggplot(rel_tol_eco, aes(..., colour = pct_pessimist)) +
+#   geom_point(size = 4) +
+#   scale_colour_gradient(low = "#74add1", high = "#d73027",
+#                         name = "% pessimist")
+```
+:::
+
+---
+
+# Exercise 5 — Who Wants a Strong Leader? {#ex5}
+
+::: {.callout-note}
+## 🗺 Mission · ⏱ ~15 min
+
+Support for autocracy — a strong leader who governs without parliament or courts — is not uniformly distributed. It tends to be higher among older respondents, those on the right of the political spectrum, and those dissatisfied with democracy.
+
+**Your task:**  
+1. Compute support for autocracy and for representative democracy side by side, for the countries where data are available.  
+2. Check whether political ideology (left–right scale) predicts support for autocracy. Split respondents into three ideology groups and compare.
+:::
+
+::: {.callout-warning collapse="true"}
+## 💡 Hint — Navigator reads this aloud
+
+`polsys_autocracy` was only asked in some countries — check coverage first.  
+For the ideology breakdown: use `case_when()` to create three groups (Left / Centre / Right) from the 0–6 scale, then `group_by(country_f, ideo_group)`.  
+
+Note: the condition for "support" uses the *original* variable: codes 1 ("Very good") or 2 ("Somewhat good") mean the respondent supports that system, so the condition is `<= 2`.
+:::
+
+```{r}
+#| label: ex5-coverage-check
+
+# ── Check which countries have data for the political systems questions ────────
+# Before computing statistics, always verify how much data you actually have.
+# sum(!is.na(x)) counts the number of non-missing values in column x.
+
+pew_clean |>
+  group_by(country_f) |>
+  summarise(
+    n_autocracy = sum(!is.na(polsys_autocracy)),  # rows with valid autocracy response
+    n_republic  = sum(!is.na(polsys_republic)),   # rows with valid republic response
+    .groups     = "drop"
+  ) |>
+  filter(n_autocracy > 0) |>  # keep only countries where the question was asked
+  kable(caption = "Coverage of political systems questions by country")
+```
+
+```{r}
+#| label: ex5-polsys-comparison
+
+# ── Weighted support for autocracy vs. representative democracy ───────────────
+
+polsys <- pew_svy |>
+
+  # Keep rows where at least one of the two polsys questions was answered
+  # The | (OR) operator keeps rows where EITHER condition is true
+  filter(!is.na(polsys_autocracy) | !is.na(polsys_republic)) |>
+
+  group_by(country_f) |>
+
+  summarise(
+
+    # % rating a strong leader (autocracy) as "Very good" or "Somewhat good"
+    # Original codes: 1 = Very good, 2 = Somewhat good → condition: <= 2
+    pct_autocracy = survey_mean(polsys_autocracy <= 2, na.rm = TRUE, vartype = "se") * 100,
+
+    # % rating representative democracy as "Very good" or "Somewhat good"
+    pct_republic  = survey_mean(polsys_republic  <= 2, na.rm = TRUE, vartype = "se") * 100,
+
+    .groups = "drop"
+
+  )
+
+# ── Reshape to long format and plot ──────────────────────────────────────────
+polsys |>
+
+  # Drop the SE columns — we don't need them for this plot
+  select(country_f, pct_autocracy, pct_republic) |>
+
+  # Stack the two estimate columns into a single 'pct' column
+  pivot_longer(
+    cols      = c(pct_autocracy, pct_republic),
+    names_to  = "system",
+    values_to = "pct"
+  ) |>
+
+  # Replace raw column names with readable labels for the legend
+  # case_match() is the modern replacement for the deprecated recode()
+  mutate(
+    system = case_match(
+      system,
+      "pct_autocracy" ~ "Strong leader (no parliament/courts)",
+      "pct_republic"  ~ "Representative democracy"
+    )
+  ) |>
+
+  ggplot(aes(x = country_f, y = pct, fill = system)) +
+
+  # Grouped bars (side by side, not stacked)
+  geom_col(position = "dodge", width = 0.6) +
+
+  scale_fill_manual(values = c(
+    "Strong leader (no parliament/courts)" = "#C0392B",
+    "Representative democracy"             = "#1A7A7A"
+  )) +
+
+  scale_y_continuous(
+    limits = c(0, 100),
+    labels = scales::label_percent(scale = 1)
+  ) +
+
+  labs(
+    title    = "Support for political systems",
+    subtitle = "% rating each system as 'very good' or 'somewhat good' (weighted)",
+    x        = NULL, y = NULL, fill = NULL,
+    caption  = "Source: Pew Spring 2024 · Countries with available data only"
+  ) +
+
+  theme(legend.position = "top")
+```
+
+```{r}
+#| label: ex5-ideology-breakdown
+
+# ── ✏️ Your turn — does political ideology predict autocracy support? ─────────
+# Navigator: explain case_when() before your Driver types.
+# case_when() is like a chain of if-else conditions:
+#   if ideology <= 2 → assign "Left (0–2)"
+#   if ideology >= 4 → assign "Right (4–6)"
+#   otherwise (TRUE) → assign "Centre (3)"
+
+ideo_autocracy <- pew_svy |>
+
+  # Keep only rows with valid autocracy and ideology values
+  filter(!is.na(polsys_autocracy), !is.na(ideology)) |>
+
+  # Create the ideology group variable BEFORE group_by
+  # (mutate inside a survey design object is allowed)
+  mutate(
+    ideo_group = case_when(
+      ideology <= 2 ~ "Left (0–2)",    # left-leaning respondents
+      ideology >= 4 ~ "Right (4–6)",   # right-leaning respondents
+      TRUE          ~ "Centre (3)"     # TRUE is the catch-all — everyone else
+    )
+  ) |>
+
+  # Group by BOTH country and ideology group → one row per combination
+  group_by(country_f, ideo_group) |>
+
+  summarise(
+    # % who consider autocracy "Very good" or "Somewhat good"
+    pct_support = survey_mean(polsys_autocracy <= 2, na.rm = TRUE, vartype = "se") * 100,
+    .groups     = "drop"
+  )
+
+# ── Faceted bar chart — one panel per country ─────────────────────────────────
+ggplot(ideo_autocracy,
+       aes(x = ideo_group,   # ideology group on the x-axis within each panel
+           y = pct_support,  # % support on the y-axis
+           fill = ideo_group # colour encodes the ideology group
+       )) +
+
+  geom_col(width = 0.6) +
+
+  # facet_wrap() creates one separate mini-plot (panel) per country
+  # ~country_f means "split by the country_f variable"
+  facet_wrap(~country_f) +
+
+  # Manual colour mapping: blue for left, grey for centre, red for right
+  scale_fill_manual(
+    values = c(
+      "Left (0–2)"  = "#4393c3",
+      "Centre (3)"  = "#d1d1d1",
+      "Right (4–6)" = "#d73027"
+    ),
+    guide = "none"  # suppress the legend (colours are self-explanatory)
+  ) +
+
+  scale_y_continuous(
+    limits = c(0, 60),
+    labels = scales::label_percent(scale = 1)
+  ) +
+
+  labs(
+    title    = "Support for autocracy by political ideology",
+    subtitle = "% rating strong-leader rule as 'very' or 'somewhat good' (weighted)",
+    x        = NULL, y = NULL,
+    caption  = "Source: Pew Spring 2024"
+  )
+```
+
+::: {.callout-caution}
+## 💬 Your group's interpretation — write 2–3 sentences here
+
+*Is support for autocracy higher on the right, the left, or in the centre? Does the pattern look the same in Hungary and Poland? What surprised your group?*
+
+**Group answer:** *[write here]*
+:::
+
+---
+
+# Exercise 6 — Your Group's Question {#ex6}
+
+::: {.callout-note}
+## 🗺 Mission · ⏱ ~18 min
+
+This is the open exercise. Your group picks a research question, builds the analysis, and prepares one finding to share with the class.
+
+**Step 1:** Agree on a question. Some starting points:
+
+- Does **misinformation concern** vary by country — and is it higher among people who are less satisfied with democracy?
+- Is support for **gender equality** (as an essential value) related to religiosity?
+- Does **political ideology** predict economic pessimism, and does this relationship differ across countries?
+- Pick two variables from the reference table below — formulate a hypothesis and test it.
+
+**Step 2:** Build the analysis using the scaffold below.
+
+**Step 3:** Write your interpretation and prepare to present one plot to the class in 2–3 minutes.
+:::
+
+::: {.callout-warning collapse="true"}
+## 💡 Variable reference — useful variables for free exploration
+
+| Variable (in `pew_clean`) | What it measures | Scale direction |
+|--------------------------|-----------------|----------------|
+| `prob_misinformation` | Perceived severity of misinformation | 1 = Very big problem … 4 = Not a problem |
+| `value_gender` | Gender equality as a national value | 1 = Essential … 3 = Not important |
+| `trust_gov` | Trust in national government | 1 = A lot … 4 = Not at all |
+| `conflict_parties` | Perceived political conflict | 1 = Very strong … 4 = No conflict |
+| `fav_eu` | Favourability of the European Union | 1 = Very favourable … 4 = Very unfavourable |
+| `ideology` | Left–right self-placement | 0 = Extreme left … 6 = Extreme right |
+| `d_class` | Subjective social class | 1 = Upper … 5 = Lower |
+
+All variables except `ideology` follow the same convention: **lower numbers = more of the concept**. Reverse with `5 - variable` (for 4-point scales) or `4 - variable` (for 3-point scales) if you want higher = more.
+:::
+
+```{r}
+#| label: ex6-your-question
+
+# ── ✏️ Your group's analysis ──────────────────────────────────────────────────
+# 1. Write your research question as a comment below.
+# 2. Compute summary statistics using pew_svy and survey_mean().
+# 3. Build a plot.
+
+# Research question: [YOUR QUESTION HERE]
+
+# ── Suggested scaffold ────────────────────────────────────────────────────────
+
+# Step 1: Compute weighted summary statistics
+# Replace YOUR_VARIABLE with the variable you want to analyse.
+# If it is a 4-point scale: create a binary (e.g. YOUR_VARIABLE <= 2)
+# or reverse it (e.g. 5 - YOUR_VARIABLE) in the mutate() below.
+
+# my_summary <- pew_svy |>
+#   filter(!is.na(YOUR_VARIABLE)) |>
+#   group_by(country_f) |>
+#   summarise(
+#     pct_x = survey_mean(YOUR_VARIABLE <= 2, na.rm = TRUE, vartype = "se") * 100,
+#     .groups = "drop"
+#   )
+
+# Step 2: Build a plot
+# Choose the right geom for your question:
+#   One variable across countries     → geom_col() + coord_flip()
+#   Two variables, one dot per country → geom_point() + geom_text()
+#   One variable split by two groups   → geom_col(position = "dodge") + facet_wrap()
+
+# ggplot(my_summary, aes(x = reorder(country_f, pct_x), y = pct_x)) +
+#   geom_col(fill = "#1B3A5C", width = 0.7) +
+#   coord_flip() +
+#   scale_y_continuous(labels = scales::label_percent(scale = 1)) +
+#   labs(title = "YOUR TITLE", x = NULL, y = NULL,
+#        caption = "Source: Pew Research Center Global Attitudes Spring 2024")
+```
+
+::: {.callout-caution}
+## 💬 Your group's interpretation — write 2–3 sentences here
+
+*State your research question, your key finding, and one limitation of your analysis.*
+
+**Group answer:** *[write here]*
+:::
+
+---
+
+# End-of-Session Reflection {.unnumbered}
+
+::: {.callout-important}
+## 🗣 Class discussion — pick one from your group
+
+Each group shares **one finding** — the result that surprised you most, or the pattern you found hardest to explain. Keep it to 2–3 minutes per group.
+
+Before presenting, agree on:
+1. What did you find?
+2. Why is it surprising (or not)?
+3. What would you need to know to explain it better?
+:::
+
+::: {.callout-note collapse="true"}
+## 📌 Navigator debrief — things to reflect on
+
+Did the Driver understand each step, or did you explain and they typed without following? The test: can your Driver now write the `group_by() |> summarise(survey_mean(...))` pattern from memory?
+
+Key concepts your Driver should be able to explain after today:
+
+- [ ] Why we use `pew_svy` instead of `pew_clean` for estimates
+- [ ] What `zap_missing()` does and why it matters before any analysis
+- [ ] What the `_r` reversed variables mean and how they are created
+- [ ] Why the mean of a binary (0/1) variable equals the proportion
+- [ ] What `pivot_longer()` does and why it is needed before grouped plots
+- [ ] Why weighting matters and what it changes in practice
+:::
+
+---
+
+*Data: Pew Research Center Global Attitudes Spring 2024 Survey · Analysis: Survey Analytics and Big Data, Corvinus University of Budapest, 2025/2026*
