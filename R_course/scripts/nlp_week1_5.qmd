@@ -1,0 +1,660 @@
+---
+title: "NLP for Social Scientists"
+subtitle: "Week 1 — Concepts, Use Cases & First Steps in R"
+author: "Bence Ságvári · Corvinus University of Budapest"
+date: "2025/2026"
+format:
+  html:
+    toc: true
+    toc-depth: 3
+    toc-title: "Contents"
+    number-sections: true
+    theme: cosmo
+    highlight-style: github
+    code-fold: false
+    code-tools: true
+    df-print: paged
+    fig-width: 9
+    fig-height: 5
+    embed-resources: true
+  pdf:
+    toc: true
+    toc-depth: 3
+    number-sections: true
+    colorlinks: true
+    highlight-style: github
+    fig-width: 7
+    fig-height: 4
+    geometry:
+      - top=25mm
+      - bottom=25mm
+      - left=25mm
+      - right=25mm
+execute:
+  echo: true
+  warning: false
+  message: false
+  cache: false
+---
+
+```{r}
+#| label: setup
+#| include: false
+library(tidyverse)
+library(tidytext)
+library(quanteda)
+library(quanteda.textstats)
+library(quanteda.textplots)
+library(scales)
+library(knitr)
+```
+
+---
+
+# What Is Text as Data?
+
+Language surrounds social life. Politicians speak in manifestos and inaugural addresses. Citizens express themselves in open-ended survey responses. Courts write decisions; newspapers frame events; social media users argue about everything. Yet for most of social science's history, text could only be studied by reading it — slowly, manually, one document at a time.
+
+NLP changes the terms of that bargain. A human researcher can read perhaps 10–20 documents per hour. A computer can process 10,000. This is not merely a speed difference; it is a difference in what questions become answerable.
+
+Text-as-data approaches let us apply social science concepts — framing, sentiment, ideology, identity — to corpora that would be impossible to read in full:
+
+- All parliamentary speeches since 1950
+- Every newspaper front page over a decade
+- Millions of social media posts
+- Tens of thousands of open-ended survey responses
+
+The core move is straightforward: we treat language as **structured, countable, comparable material**. Words become variables. Documents become observations. A corpus becomes a dataset.
+
+## Types of Text in Social Science
+
+Text enters social science research in many forms:
+
+| Type | Examples |
+|------|----------|
+| **Political** | Speeches, manifestos, parliamentary debates, party platforms |
+| **Media** | News articles, editorials, social media, transcribed podcasts |
+| **Administrative** | Court decisions, policy documents, bureaucratic records |
+| **Survey** | Open-ended responses, interview transcripts, focus groups |
+| **Historical** | Archives, digitised newspapers, diaries, letters |
+
+Each type brings its own preprocessing challenges, its own vocabulary biases, and its own implicit assumptions about what counts as a meaningful unit of analysis. Keeping track of these differences is as important as the method itself.
+
+---
+
+# The Method Ladder
+
+NLP methods vary enormously in complexity and in what they assume about language. It helps to think of them as a ladder: each rung answers a different kind of question, and each rung requires more interpretive judgement than the one below it.
+
+| Step | Method | Research Question |
+|------|--------|-------------------|
+| **1** | Frequency & Keywords | What words are most distinctive of this corpus or group? |
+| **2** | Dictionary & Sentiment | How much negativity / populism / emotion is in these texts? |
+| **3** | Topic Modelling | What themes run through this corpus, and how do they vary? |
+| **4** | Supervised Classification | Does this document express support or opposition to X? |
+| **5** | Embeddings & Language Models | Which documents are semantically closest to this concept? |
+
+This course works through the first four rungs over four weeks. Today covers Step 1 — frequency and keywords — using real political speech data. The key principle to hold onto: **complexity increases, and so does the interpretive effort required**.
+
+## Four Published Use Cases
+
+Before writing a single line of code, it is worth anchoring these methods in actual published work. Each example below uses a different method family and illustrates what scale makes possible.
+
+**Ideological scaling of manifestos.** Laver, Benoit & Garry (2003) estimated party positions from election manifestos by treating word frequencies as ideological signals — no human coding required. They reproduced results from expensive expert surveys at a fraction of the cost and time.
+
+**Sentiment in parliamentary debates.** Researchers tracked the emotional tone of parliamentary speeches over decades, finding that negative sentiment spikes during economic crises and correlates with populist voting. This connects macro-political events to the actual language of democratic institutions.
+
+**Media framing of migration.** Heidenreich et al. (2019) used structural topic models to show that migration coverage in European newspapers frames the issue as a 'threat' significantly more often in right-wing outlets — across 1.3 million articles in 7 countries, a scale impossible by hand.
+
+**Scaling up survey open-responses.** Researchers trained a classifier on a human-coded subset of open-ended responses, then applied it to the remaining 40,000 — reproducing the manual coding scheme at scale with over 85% accuracy. This bridges qualitative insight and quantitative scale.
+
+---
+
+# The Measurement Problem
+
+Before touching any data, we need to sit with what is arguably the most important conceptual issue in this course.
+
+NLP tools produce **outputs** — sentiment scores, topic proportions, word frequencies, classifier labels. But what social scientists care about are **constructs** — attitudes, social phenomena, meanings, behaviours. These are not the same thing, and the gap between them is where most analytical mistakes are made.
+
+```
+NLP output             ≠          Your construct
+─────────────────────────────────────────────────
+Sentiment score        ≠          Attitude
+Topic proportion       ≠          Social phenomenon
+Word frequency         ≠          Meaning
+Classifier label       ≠          Behaviour
+```
+
+Every NLP measure needs a **validity argument**. Ask yourself: does this operationalisation actually capture the concept I care about — in this language, this domain, this time period? A sentiment lexicon trained on English product reviews will not travel cleanly to 19th-century inaugural rhetoric. A topic model with 20 topics will tell you something different from one with 5.
+
+This is not a reason to avoid NLP. It is a reason to be explicit and honest about what your measures are doing — exactly as you would be with any survey scale or observational measure.
+
+---
+
+# Limits and Honest Expectations
+
+NLP is a powerful tool, not a shortcut. Here are five limitations worth taking seriously from the start.
+
+**Language and domain dependency.** Models trained on contemporary social media perform poorly on formal political speech from the 18th century. Pre-trained models embed the cultural assumptions of their training corpora. Always validate on your specific data.
+
+**Cleaning takes longer than analysis.** OCR errors, encoding issues, inconsistent formatting, domain-specific stopwords — text data is rarely clean. Expect 60–70% of project time to be preprocessing, not modelling.
+
+**Black boxes and reproducibility.** Large language models are difficult to interpret. Results can change with model versions. Always report the model, version, hyperparameters, and preprocessing decisions.
+
+**Quantity ≠ quality.** A million documents does not guarantee valid inference. Biased corpora, missing voices, and survivorship bias are real threats to external validity.
+
+**NLP is a tool, not a theory.** The research question, the theoretical framework, and the interpretation must still come from you. NLP operationalises concepts — it does not generate them.
+
+---
+
+# The Corpus: US Presidential Inaugural Addresses
+
+For the coding sections of this course we use the **US Presidential Inaugural Address corpus**, which ships directly with the `quanteda` package — no additional installation required. This corpus is widely used in computational political science teaching and research.
+
+## What the Corpus Contains
+
+The corpus covers every inaugural address delivered by US presidents from **George Washington (1789) to Joe Biden (2021)**. Each document is one speech, with the following metadata:
+
+| Variable | Description |
+|----------|-------------|
+| `President` | President's surname |
+| `FirstName` | President's first name |
+| `Year` | Year of the address |
+| `Party` | President's party affiliation |
+
+```{r}
+# Load the corpus — ships with base quanteda, no extra install needed
+corp <- data_corpus_inaugural
+
+# Quick overview
+summary(corp, n = 8)
+```
+
+The summary shows each address with its token count and docvars. Speeches vary enormously in length — Washington's second inaugural was just 135 words; William Henry Harrison's 1841 address ran to over 8,000. This variation is itself sociologically informative: the norms of presidential communication have shifted dramatically over two centuries.
+
+```{r}
+# How many addresses per party?
+docvars(corp) |>
+  count(Party, sort = TRUE)
+```
+
+```{r}
+# Distribution by president
+docvars(corp) |>
+  count(President) |>
+  arrange(desc(n))
+```
+
+The corpus spans the full arc of American political history: Federalists and Democratic-Republicans in the early republic, Democrats and Whigs in the antebellum era, and the familiar Democrat/Republican split from the Civil War onwards. This long time span makes tf-idf particularly powerful — we can track which concerns defined each era's political language.
+
+## Grouping Speeches into Eras
+
+Fifty-nine individual speeches are too many to compare directly. We group them into five historical eras that reflect distinct periods of American political development:
+
+```{r}
+# Add an era variable to the corpus docvars
+corp <- corp |>
+  corpus_subset(select = TRUE)   # keep all documents
+
+docvars(corp, "era") <- case_when(
+  docvars(corp, "Year") < 1829 ~ "Founding Era (1789–1828)",
+  docvars(corp, "Year") < 1865 ~ "Antebellum (1829–1864)",
+  docvars(corp, "Year") < 1933 ~ "Industrial Age (1865–1932)",
+  docvars(corp, "Year") < 1981 ~ "New Deal & Cold War (1933–1980)",
+  TRUE                          ~ "Contemporary (1981–2021)"
+)
+
+# Confirm
+docvars(corp) |>
+  count(era)
+```
+
+---
+
+# The tidytext Framework
+
+We now turn to code. This section introduces the `tidytext` package (Silge & Robinson 2017), which brings text analysis into the tidyverse ecosystem.
+
+## The Tidy Text Principle
+
+The fundamental idea is simple: **one token per row**. A *token* is a meaningful unit of text — usually a word — and *tokenisation* is the process of splitting text into tokens. Structuring data this way makes it immediately compatible with `dplyr`, `ggplot2`, and the rest of the tidyverse.
+
+Consider the contrast:
+
+**Raw format** — one document per row, text as a single string:
+
+```
+doc_id          Year  Party  text
+Washington-1789 1789  none   'Fellow citizens, I am again called...'
+Adams-1797      1797  Federalist  'When it was first perceived...'
+```
+
+**Tidy text format** — one token per row:
+
+```
+doc_id          Year  Party  word
+Washington-1789 1789  none   fellow
+Washington-1789 1789  none   citizens
+Adams-1797      1797  Federalist  perceived
+```
+
+The transformation between these two representations is handled by a single function: `unnest_tokens()`.
+
+## Converting the Corpus to a Tidy Data Frame
+
+We convert the `quanteda` corpus object to a plain data frame, then tokenise:
+
+```{r}
+# Convert corpus to tidy data frame — one row per speech
+inaugural_df <- corp |>
+  convert(to = "data.frame") |>
+  as_tibble() |>
+  rename(text = text)
+
+glimpse(inaugural_df)
+```
+
+```{r}
+# Tokenise with unnest_tokens() — one word per row
+tidy_inaugural <- inaugural_df |>
+  unnest_tokens(word, text)
+
+cat("Total tokens:", nrow(tidy_inaugural), "\n")
+```
+
+## Removing Stop Words
+
+Most of the most frequent words in any text are grammatical function words: *the*, *and*, *of*, *to*. These carry no discriminating information for most research questions and are typically removed. The `tidytext` package ships a stop word list drawn from multiple lexicons:
+
+```{r}
+data(stop_words)
+
+tidy_inaugural <- tidy_inaugural |>
+  anti_join(stop_words, by = "word") |>
+  filter(str_detect(word, "^[a-z]"))   # drop stray numbers and symbols
+
+cat("Tokens after stop word removal:", nrow(tidy_inaugural), "\n")
+```
+
+The `anti_join()` keeps only rows whose `word` value does *not* appear in `stop_words`. The additional `filter()` removes numeric tokens that survive stop word removal but carry no interpretable lexical content.
+
+## The Most Frequent Words Overall
+
+```{r}
+#| label: fig-top-words
+#| fig-cap: "The 20 most frequent content words across all US inaugural addresses (1789–2021), after stop word removal."
+
+tidy_inaugural |>
+  count(word, sort = TRUE) |>
+  slice_head(n = 20) |>
+  mutate(word = reorder(word, n)) |>
+  ggplot(aes(x = word, y = n)) +
+  geom_col(fill = "#1B6CA8") +
+  coord_flip() +
+  labs(
+    title = "Most Frequent Words in US Inaugural Addresses (1789–2021)",
+    x = NULL,
+    y = "Count"
+  ) +
+  theme_minimal(base_size = 12)
+```
+
+The top words — "government", "people", "nation", "world", "peace", "freedom" — are the perennial vocabulary of American political identity. This is again a validating result: these are exactly the abstractions one expects in ceremonial political speech. Their universality across all presidents is also a reminder of why raw frequency alone is insufficient — to find what is *distinctive* about any era or president, we need tf-idf.
+
+## Word Frequencies by Party
+
+Before moving to tf-idf, a simpler comparison: how does the vocabulary of Democratic versus Republican presidents differ in proportional terms?
+
+```{r}
+#| label: fig-dem-rep-compare
+#| fig-cap: "Word frequency comparison between Democratic and Republican inaugural addresses. Words near the diagonal appear at similar rates in both; words far from the line are distinctive to one party."
+
+party_freq <- tidy_inaugural |>
+  filter(Party %in% c("Democratic", "Republican")) |>
+  count(Party, word) |>
+  group_by(Party) |>
+  mutate(proportion = n / sum(n)) |>
+  select(-n) |>
+  pivot_wider(names_from = Party, values_from = proportion) |>
+  drop_na()
+
+# Label the most divergent words
+divergent <- party_freq |>
+  mutate(diff = abs(Democratic - Republican)) |>
+  slice_max(diff, n = 25)
+
+ggplot(party_freq, aes(x = Republican, y = Democratic)) +
+  geom_abline(colour = "gray40", linetype = 2) +
+  geom_point(alpha = 0.15, size = 1.8, colour = "#555555") +
+  geom_text(
+    data = divergent,
+    aes(label = word),
+    check_overlap = TRUE, size = 3, vjust = 1.5
+  ) +
+  scale_x_log10(labels = percent_format(accuracy = 0.01)) +
+  scale_y_log10(labels = percent_format(accuracy = 0.01)) +
+  labs(
+    title = "Word Frequencies: Democratic vs Republican Inaugurals",
+    subtitle = "Labelled words show the greatest divergence from equal usage",
+    x = "Republican proportion",
+    y = "Democratic proportion"
+  ) +
+  theme_minimal(base_size = 12)
+```
+
+Words near the dashed diagonal appear at similar rates in both parties' speeches — the shared vocabulary of the presidency. Words far from the line reveal partisan emphases. Interpreting these differences carefully requires knowing *when* each speech was delivered: many apparent party differences are partly era effects, since the corpus spans 230 years of shifting political meaning.
+
+---
+
+# tf-idf: Measuring Distinctiveness
+
+Raw frequency tells us what words are common. But if a word appears in every inaugural address — "government", "people", "nation" — its frequency tells us nothing about what makes any particular era or president distinctive. What we want is a measure of *distinctiveness*: words that are frequent in one group's speeches but rare across the corpus as a whole.
+
+This is what **tf-idf** (term frequency–inverse document frequency) measures.
+
+$$\text{tf-idf}(t, d, D) = \underbrace{\frac{f_{t,d}}{\sum_{t'} f_{t',d}}}_{\text{term frequency}} \times \underbrace{\log \frac{|D|}{|\{d \in D : t \in d\}|}}_{\text{inverse document frequency}}$$
+
+A word scores high on tf-idf when it is frequent within a document *and* rare across other documents. Universal words like "nation" score near zero because they appear everywhere (their IDF approaches zero). A word specific to one era — a proper name, a policy term, a historically-situated concept — scores high because it is used in that group but largely absent from others.
+
+## tf-idf by Era
+
+We compute tf-idf with each era treated as a single aggregated document:
+
+```{r}
+inaugural_tfidf <- tidy_inaugural |>
+  count(era, word, sort = TRUE) |>
+  bind_tf_idf(word, era, n) |>
+  arrange(desc(tf_idf))
+
+inaugural_tfidf |>
+  select(era, word, n, tf, idf, tf_idf) |>
+  slice_head(n = 10)
+```
+
+```{r}
+#| label: fig-tfidf-era
+#| fig-cap: "Most distinctive words per historical era in US inaugural addresses, ranked by tf-idf score."
+#| fig-height: 8
+
+inaugural_tfidf |>
+  group_by(era) |>
+  slice_max(tf_idf, n = 10) |>
+  ungroup() |>
+  mutate(
+    word = reorder_within(word, tf_idf, era),
+    era  = factor(era, levels = c(
+      "Founding Era (1789–1828)",
+      "Antebellum (1829–1864)",
+      "Industrial Age (1865–1932)",
+      "New Deal & Cold War (1933–1980)",
+      "Contemporary (1981–2021)"
+    ))
+  ) |>
+  ggplot(aes(x = word, y = tf_idf, fill = era)) +
+  geom_col(show.legend = FALSE) +
+  facet_wrap(~era, scales = "free", ncol = 2) +
+  coord_flip() +
+  scale_x_reordered() +
+  scale_fill_manual(values = c(
+    "Founding Era (1789–1828)"        = "#1B6CA8",
+    "Antebellum (1829–1864)"          = "#2D9E6B",
+    "Industrial Age (1865–1932)"      = "#7B4F9E",
+    "New Deal & Cold War (1933–1980)" = "#C05B28",
+    "Contemporary (1981–2021)"        = "#B5282C"
+  )) +
+  labs(
+    title = "Most Distinctive Words by Historical Era",
+    subtitle = "US Presidential Inaugural Addresses — ranked by tf-idf",
+    x = NULL,
+    y = "tf-idf score"
+  ) +
+  theme_minimal(base_size = 10) +
+  theme(strip.text = element_text(face = "bold"))
+```
+
+The results are historically legible, and sociologically meaningful:
+
+- **Founding Era**: Words around constitutional structure, commerce, and republican government — the vocabulary of state-building.
+- **Antebellum**: The language of territorial expansion, union, and the mounting sectional crisis — "states", "sovereign", "territories".
+- **Industrial Age**: War, reconstruction, tariffs, and labour — the political economy of industrialisation and its conflicts.
+- **New Deal & Cold War**: "depression", "fear", "communist", "nuclear" — the twin crises of economic collapse and ideological confrontation.
+- **Contemporary**: "freedom", "terrorism", "global", "economy" — the post-Cold War era defined by security threats and market integration.
+
+Each era's distinctive words are not simply the most frequent words — they are what sets that era apart. tf-idf has extracted a compressed political history of the United States from word counts alone. The social scientist's job is to ask whether that extraction is *valid*: does distinctive vocabulary actually reflect distinctive political concerns, or are some differences artefacts of changing speech norms, address length, or ghostwriting?
+
+## tf-idf by Individual President
+
+We can apply the same logic at the level of individual presidents, which reveals idiosyncratic rhetorical signatures:
+
+```{r}
+#| label: fig-tfidf-president
+#| fig-cap: "Most distinctive words for six selected presidents, ranked by tf-idf. Presidents are chosen to span eras and parties."
+#| fig-height: 7
+
+# Select a representative set of presidents across eras and parties
+selected <- c("Washington", "Lincoln", "Roosevelt", "Kennedy", "Reagan", "Obama")
+
+tidy_inaugural |>
+  filter(President %in% selected) |>
+  count(President, word, sort = TRUE) |>
+  bind_tf_idf(word, President, n) |>
+  group_by(President) |>
+  slice_max(tf_idf, n = 8) |>
+  ungroup() |>
+  mutate(
+    word      = reorder_within(word, tf_idf, President),
+    President = factor(President, levels = selected)
+  ) |>
+  ggplot(aes(x = word, y = tf_idf, fill = President)) +
+  geom_col(show.legend = FALSE) +
+  facet_wrap(~President, scales = "free", ncol = 3) +
+  coord_flip() +
+  scale_x_reordered() +
+  scale_fill_brewer(palette = "Dark2") +
+  labs(
+    title = "Most Distinctive Words by President",
+    subtitle = "Selected presidents spanning eras and parties",
+    x = NULL,
+    y = "tf-idf score"
+  ) +
+  theme_minimal(base_size = 10) +
+  theme(strip.text = element_text(face = "bold"))
+```
+
+At the individual level, tf-idf surfaces both historical context and rhetorical style. Lincoln's distinctive vocabulary reflects the Civil War crisis; Kennedy's the Cold War and the space age; Reagan's the conservative turn and Cold War confrontation. These are not just historical curiosities — they illustrate how language indexes the political moment a leader inhabits, and how much of what sounds "personal" in a speech is actually situational.
+
+---
+
+# Introduction to quanteda
+
+`tidytext` is not the only ecosystem for text analysis in R. `quanteda` (Quantitative Analysis of Textual Data) takes a different architectural approach, built around the **Document-Feature Matrix (DFM)** — a sparse matrix with one row per document and one column per word (feature).
+
+The DFM is the native input format for most advanced NLP methods used in later weeks: LDA topic models, text scaling, and supervised classifiers.
+
+## The quanteda Pipeline
+
+The workflow in `quanteda` follows three steps: corpus → tokens → DFM. We already have the corpus object `corp`, so we build on it directly.
+
+```{r}
+# Step 1: Tokenise and clean
+inaugural_tokens <- corp |>
+  tokens(
+    remove_punct   = TRUE,
+    remove_numbers = TRUE,
+    remove_symbols = TRUE
+  ) |>
+  tokens_remove(stopwords("en"))
+
+# Step 2: Build the Document-Feature Matrix
+inaugural_dfm <- dfm(inaugural_tokens)
+
+inaugural_dfm
+```
+
+The DFM object reports its dimensions (documents × features) and sparsity. Most cells are zero — any given word does not appear in most speeches. This sparsity is why the DFM is stored as a sparse matrix rather than a regular data frame.
+
+## Grouping the DFM by Metadata
+
+One of quanteda's strengths is that docvars travel with the corpus through the entire pipeline, making it easy to group the DFM by any variable:
+
+```{r}
+# Group by era — one row per era instead of per speech
+inaugural_dfm_era <- inaugural_dfm |>
+  dfm_group(groups = era)
+
+# Top features per era
+topfeatures(inaugural_dfm_era, n = 8, groups = era)
+```
+
+```{r}
+# Group by party
+inaugural_dfm_party <- inaugural_dfm |>
+  dfm_group(groups = Party)
+
+topfeatures(inaugural_dfm_party, n = 8, groups = Party)
+```
+
+## Inspecting the DFM
+
+```{r}
+cat("Documents (speeches):", ndoc(inaugural_dfm), "\n")
+cat("Features (unique words):", nfeat(inaugural_dfm), "\n")
+cat("Sparsity:", round(sparsity(inaugural_dfm) * 100, 1), "%\n")
+```
+
+The sparsity figure — typically above 90% for this corpus — is normal and expected. Presidents share a core political vocabulary but diverge in proper names, era-specific concepts, and stylistic choices. The sparse matrix format handles this efficiently.
+
+## A Comparison Word Cloud
+
+`quanteda.textplots` lets us generate a comparison word cloud directly from the grouped DFM — a fast visual summary of what distinguishes two groups:
+
+```{r}
+#| label: fig-wordcloud
+#| fig-cap: "Comparison word cloud: Democratic vs Republican inaugural addresses. Size reflects frequency; colour and position reflect distinctiveness to each party."
+
+inaugural_dfm |>
+  dfm_subset(Party %in% c("Democratic", "Republican")) |>
+  dfm_group(groups = Party) |>
+  dfm_trim(min_termfreq = 3) |>
+  textplot_wordcloud(
+    comparison = TRUE,
+    max_words  = 80,
+    color      = c("#0072B2", "#CC0000")
+  )
+```
+
+The comparison word cloud is visually intuitive but analytically imprecise — it is a tool for exploration and communication, not inference. We use it here to generate hypotheses that more rigorous methods in later weeks can test properly.
+
+## Comparing the Two Ecosystems
+
+Both packages are excellent and solve overlapping but distinct problems:
+
+| Feature | tidytext | quanteda |
+|---------|----------|----------|
+| **Data structure** | Tidy tibble (one-token-per-row) | DFM (sparse matrix) |
+| **Integrates with** | dplyr, ggplot2, tidymodels | quanteda.textmodels, stm, spacyr |
+| **Best for** | Exploration, visualisation, joining metadata | Topic models, scaling, classification |
+| **Corpus size** | Small–medium | Large corpora |
+| **Learning curve** | Gentle (tidyverse idioms) | Moderate (new data structures) |
+| **This course** | Weeks 1–2 (primary) | Weeks 3–4 (primary) |
+
+The two are not mutually exclusive. A common workflow — one we follow throughout this course — is to use `tidytext` for exploration and preprocessing, then convert to a DFM for modelling:
+
+```{r}
+# Converting a tidy tibble back to a DFM when needed for modelling
+tidy_inaugural |>
+  count(doc_id, word) |>
+  cast_dfm(doc_id, word, n)
+```
+
+`cast_dfm()` is the bridge between the two worlds: it takes a tidy word-count data frame and produces a quanteda DFM directly.
+
+---
+
+# Discussion Questions
+
+*5 minutes individual thinking · 10 minutes group discussion*
+
+**Question 1 — What text data exists in your own research area?**
+Think about what you would want to measure from it. Is the text already collected, or would you need to create or gather a corpus? What would be the main practical and ethical obstacles?
+
+**Question 2 — Pick a concept from your field. How would you operationalise it from text — and what could go wrong?**
+Examples: trust, polarisation, framing, social cohesion, inequality. Which NLP method would you use (dictionary, topic model, classifier)? What would a failure of validity look like in practice — and how would you detect it?
+
+---
+
+# Take-Home Exercise
+
+Complete before Week 2. Bring your output and interpretation to class.
+
+**Exercise 1 — Change the grouping variable.** Re-run the tf-idf analysis grouping by individual president rather than era. Which presidents have the most distinctive vocabularies? Does this align with your prior knowledge of US political history?
+
+```{r}
+#| eval: false
+
+president_tfidf <- tidy_inaugural |>
+  count(President, word, sort = TRUE) |>
+  bind_tf_idf(word, President, n) |>
+  arrange(desc(tf_idf))
+
+# Find the 6 presidents with the most distinctive language overall
+top_presidents <- president_tfidf |>
+  group_by(President) |>
+  summarise(max_tfidf = max(tf_idf)) |>
+  slice_max(max_tfidf, n = 6) |>
+  pull(President)
+
+# Visualise — complete the ggplot pipeline
+president_tfidf |>
+  filter(President %in% top_presidents) |>
+  group_by(President) |>
+  slice_max(tf_idf, n = 8) |>
+  ungroup() |>
+  mutate(word = reorder_within(word, tf_idf, President)) |>
+  ggplot(aes(x = word, y = tf_idf, fill = President)) +
+  # --- add geom, coord_flip, facet_wrap, scale_x_reordered, theme ---
+  identity()
+```
+
+**Exercise 2 — Narrow the time window.** Filter the corpus to post-1945 addresses only. Re-run tf-idf by era. Do the results change meaningfully compared to the full corpus? What does this tell you about how within-era variation can mask between-era patterns?
+
+```{r}
+#| eval: false
+
+tidy_postwar <- tidy_inaugural |>
+  filter(Year >= 1945)
+
+postwar_tfidf <- tidy_postwar |>
+  count(era, word, sort = TRUE) |>
+  bind_tf_idf(word, era, n) |>
+  arrange(desc(tf_idf))
+
+# --- add your visualisation ---
+```
+
+**Exercise 3 — Write your interpretation.** Write 3–4 sentences addressing: What do the most distinctive words per era reveal about how American political discourse has changed? What can you *not* conclude from this analysis, and why? What additional evidence would you need to make a causal claim about what drives shifts in presidential language?
+
+---
+
+# What Comes Next
+
+Today we covered the first rung of the method ladder: frequency, word counts, and tf-idf. We introduced the tidy text format and the quanteda DFM as the two dominant data structures for text analysis in R, and applied both to a long-running political speech corpus that spans over two centuries of American presidential rhetoric.
+
+**Week 2 — Dictionary & Sentiment.** We apply pre-built sentiment lexicons (AFINN, Bing, NRC) to the inaugural addresses and build custom dictionaries. We also confront the validation question head-on: does a general-purpose sentiment lexicon capture political tone, or does it require domain-specific adaptation?
+
+**Week 3 — Topic Modelling.** We introduce Latent Dirichlet Allocation (LDA) and the Structural Topic Model (STM), where topics vary with document-level covariates such as party, era, and year. Topic prevalence becomes an outcome variable in its own right.
+
+**Week 4 — Classification & Beyond.** We train supervised classifiers using `tidymodels`, introduce word embeddings (word2vec), and take a first look at transformer-based language models.
+
+---
+
+# References
+
+- Silge, J. & Robinson, D. (2017). *Text Mining with R: A Tidy Approach*. O'Reilly Media. <https://www.tidytextmining.com>
+- Benoit, K. et al. (2018). quanteda: An R package for the quantitative analysis of textual data. *Journal of Open Source Software*, 3(30), 774.
+- Laver, M., Benoit, K. & Garry, J. (2003). Extracting policy positions from political texts using words as data. *American Political Science Review*, 97(2), 311–331.
+- Heidenreich, T. et al. (2019). Media framing dynamics of the 'European refugee crisis'. *Journal of Refugee Studies*, 32(S1), i172–i182.
+
+---
+
+*NLP for Social Scientists · Week 1 · Corvinus University of Budapest 2025/2026*
