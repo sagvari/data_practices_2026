@@ -40,6 +40,9 @@ execute:
 ```{r}
 #| label: setup
 #| include: false
+
+install.packages(c("tidyverse", "tidytext", "quanteda", "quanteda.textstats", "quanteda.textplots", "scales", "knitr"))
+
 library(tidyverse)
 library(tidytext)
 library(quanteda)
@@ -259,7 +262,7 @@ glimpse(inaugural_df)
 tidy_inaugural <- inaugural_df |>
   unnest_tokens(word, text)
 
-cat("Total tokens:", nrow(tidy_inaugural), "\n")
+cat("Total", "\n", "tokens:", nrow(tidy_inaugural), "\n")
 ```
 
 ## Removing Stop Words

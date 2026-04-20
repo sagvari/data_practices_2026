@@ -1,0 +1,995 @@
+---
+title: "NLP for Social Scientists"
+subtitle: "Week 2 — Dictionary Methods & Sentiment Analysis"
+author: "Bence Ságvári · Corvinus University of Budapest"
+date: "2025/2026"
+format:
+  html:
+    toc: true
+    toc-depth: 3
+    toc-title: "Contents"
+    number-sections: true
+    theme: cosmo
+    highlight-style: github
+    code-fold: false
+    code-tools: true
+    df-print: paged
+    fig-width: 9
+    fig-height: 5
+    embed-resources: true
+  pdf:
+    toc: true
+    toc-depth: 3
+    number-sections: true
+    colorlinks: true
+    highlight-style: github
+    fig-width: 7
+    fig-height: 4
+    geometry:
+      - top=25mm
+      - bottom=25mm
+      - left=25mm
+      - right=25mm
+execute:
+  echo: true
+  warning: false
+  message: false
+  cache: false
+---
+
+```{r}
+#| label: install-packages
+#| include: false
+
+# Automatically install any packages that are not yet available.
+# This runs silently on every render — already-installed packages are skipped.
+
+cran_packages <- c(
+  "tidyverse",
+  "tidytext",
+  "sotu",
+  "quanteda",
+  "quanteda.textstats",
+  "scales",
+  "knitr",
+  "ggrepel"
+)
+
+missing <- cran_packages[!cran_packages %in% installed.packages()[, "Package"]]
+
+if (length(missing) > 0) {
+  message("Installing missing packages: ", paste(missing, collapse = ", "))
+  install.packages(missing, repos = "https://cloud.r-project.org")
+} else {
+  message("All required packages are already installed.")
+}
+```
+
+```{r}
+#| label: setup
+#| include: false
+library(tidyverse)
+library(tidytext)
+library(sotu)
+library(quanteda)
+library(quanteda.textstats)
+library(scales)
+library(knitr)
+library(ggrepel)
+
+# ── Lexicon loading ──────────────────────────────────────────────────────────
+# textdata (which backs AFINN and NRC) calls menu() for interactive consent
+# on first use, crashing non-interactive Quarto renders.
+#
+# Strategy:
+#   • Bing  → bundled directly in tidytext::sentiments, no textdata needed
+#   • AFINN → downloaded once from the canonical public URL and cached as .rds
+#   • NRC   → same approach: downloaded once and cached as .rds
+#
+# After the first render the .rds files exist locally and no network access
+# or user interaction is ever required again.
+
+.cache_rds <- function(path, build_fn) {
+  if (!file.exists(path)) {
+    message("Caching ", path, " ...")
+    saveRDS(build_fn(), path)
+  }
+  readRDS(path)
+}
+
+# Bing: read straight from the tidytext built-in data object
+.bing_lexicon <- tidytext::sentiments |>
+  select(word, sentiment)
+
+# AFINN: tab-separated file hosted by the original author (Finn Årup Nielsen)
+.afinn_lexicon <- .cache_rds("afinn_lexicon.rds", function() {
+  read_tsv(
+    "https://raw.githubusercontent.com/fnielsen/afinn/master/afinn/data/AFINN-111.txt",
+    col_names        = c("word", "value"),
+    show_col_types   = FALSE
+  )
+})
+
+# NRC: hosted by Saif Mohammad (NRC-Canada) as a public zip.
+# We download to a temp dir, unzip it there, then read the extracted file
+# directly — avoids fragile in-memory zip connection handling.
+.nrc_lexicon <- .cache_rds("nrc_lexicon.rds", function() {
+  tmp_zip <- tempfile(fileext = ".zip")
+  tmp_dir <- tempdir()
+  download.file(
+    "https://saifmohammad.com/WebDocs/NRC-Emotion-Lexicon.zip",
+    destfile = tmp_zip, quiet = TRUE
+  )
+  unzip(tmp_zip, exdir = tmp_dir)
+  # Find the word-level file (name varies slightly across versions)
+  target <- list.files(tmp_dir, pattern = "NRC-Emotion-Lexicon-Wordlevel",
+                       full.names = TRUE, recursive = TRUE)
+  read_tsv(target[1],
+    col_names      = c("word", "sentiment", "flag"),
+    show_col_types = FALSE
+  ) |>
+    filter(flag == 1) |>
+    select(word, sentiment)
+})
+
+# Thin wrapper so the rest of the document can keep using get_sentiments()
+get_sentiments <- function(lexicon) {
+  switch(lexicon,
+    bing  = .bing_lexicon,
+    afinn = .afinn_lexicon,
+    nrc   = .nrc_lexicon,
+    stop("Unknown lexicon: ", lexicon)
+  )
+}
+```
+
+---
+
+# Where We Are on the Method Ladder
+
+Last week we covered the first rung of the method ladder: frequency analysis and tf-idf. We learned to ask *what words are most distinctive* of a given group, era, or speaker. This week we move to the second rung: **dictionary and sentiment methods**.
+
+| Step | Method | Research Question |
+|------|--------|-------------------|
+| **1** ✓ | Frequency & Keywords | What words are most distinctive of this corpus or group? |
+| **2 ←** | **Dictionary & Sentiment** | **How much negativity / populism / emotion is in these texts?** |
+| **3** | Topic Modelling | What themes run through this corpus, and how do they vary? |
+| **4** | Supervised Classification | Does this document express support or opposition to X? |
+| **5** | Embeddings & Language Models | Which documents are semantically closest to this concept? |
+
+The shift from Week 1 to Week 2 is conceptually important. tf-idf is *inductive* — it discovers what is distinctive without any prior theory. Dictionary methods are *deductive* — we bring a theory about which words signal a construct (negativity, crisis, populism) and measure how much of it is present in each document. This makes dictionary methods easier to interpret and easier to critique.
+
+---
+
+# What Is a Dictionary Method?
+
+A dictionary (also called a *lexicon* or *word list*) is simply a predefined set of words associated with a concept. The method has three steps:
+
+1. Define or obtain a list of words that operationalise your construct
+2. Count how many of those words appear in each document
+3. Use the count (raw or normalised) as a measure of that construct
+
+For example, a simple negativity dictionary might contain: *crisis*, *failure*, *problem*, *danger*, *threat*, *decline*. A speech that contains many of these words scores higher on negativity than one that contains few.
+
+The appeal is transparency. Unlike topic models or classifiers, a dictionary measure is fully inspectable — you can read every word in it. This also makes it fully criticisable, which is a feature rather than a bug.
+
+## The Core Trade-off
+
+Dictionary methods trade **coverage** for **precision**:
+
+- A short, carefully curated list captures your construct precisely but may miss many relevant instances (low recall)
+- A long, inclusive list captures more instances but may match words used in irrelevant senses (low precision)
+
+The classic example: the word *negative* in a dictionary measuring negativity will match "the results were *negative*" (relevant) but also "the *negative* electrode" (irrelevant in most social science contexts). Whether this matters depends on your domain.
+
+---
+
+# The Corpus: State of the Union Addresses
+
+This week we move from inaugural addresses to **State of the Union (SOTU) addresses**, available through the `sotu` package. Where inaugurals are ceremonial and relatively timeless in tone, SOTU addresses are explicitly policy-oriented — they respond to current events, crises, wars, and economic conditions. This makes them much richer for sentiment and dictionary analysis.
+
+```{r}
+# Load the SOTU corpus
+# sotu_meta: data frame with metadata (president, year, party, sotu_type)
+# sotu_text: character vector of speech texts, in the same row order
+
+sotu_df <- sotu_meta |>
+  bind_cols(tibble(text = sotu_text)) |>
+  mutate(
+    # Normalise party labels — early parties are sparse, collapse for clarity
+    party_grouped = case_when(
+      party == "Republican"  ~ "Republican",
+      party == "Democratic"  ~ "Democratic",
+      party == "Democratic-Republican" ~ "Dem-Republican",
+      TRUE ~ "Other/Early"
+    ),
+    # Five historical eras matching Week 1
+    era = case_when(
+      year < 1829 ~ "Founding Era (1789–1828)",
+      year < 1865 ~ "Antebellum (1829–1864)",
+      year < 1933 ~ "Industrial Age (1865–1932)",
+      year < 1981 ~ "New Deal & Cold War (1933–1980)",
+      TRUE        ~ "Contemporary (1981–2021)"
+    )
+  )
+
+glimpse(sotu_df)
+```
+
+```{r}
+# How many addresses per party?
+sotu_df |>
+  count(party_grouped, sort = TRUE)
+```
+
+```{r}
+# Time span and address type
+sotu_df |>
+  count(sotu_type)
+```
+
+The corpus covers addresses from 1790 to the early 2020s. Note the `sotu_type` variable: early addresses were written documents submitted to Congress; the spoken address delivered in person became standard from Woodrow Wilson onward, and the modern televised format from the mid-20th century. These format shifts are themselves confounds worth keeping in mind — spoken addresses tend to be more rhetorically charged than written ones.
+
+## Tokenising the SOTU Corpus
+
+```{r}
+data(stop_words)
+
+tidy_sotu <- sotu_df |>
+  unnest_tokens(word, text) |>
+  anti_join(stop_words, by = "word") |>
+  filter(str_detect(word, "^[a-z]"))
+
+cat("Total tokens (after stop word removal):", nrow(tidy_sotu), "\n")
+cat("Addresses:", n_distinct(tidy_sotu$year), "\n")
+```
+
+---
+
+# Sentiment Lexicons in tidytext
+
+The `tidytext` package provides access to three widely used sentiment lexicons through the `get_sentiments()` function. Each takes a different approach to measuring sentiment:
+
+| Lexicon | Coverage | Scale | Best for |
+|---------|----------|-------|----------|
+| **AFINN** | ~2,500 words | Integer $-5$ to $+5$ | Continuous sentiment score per document |
+| **Bing** | ~6,800 words | Binary: positive / negative | Positive–negative ratio comparisons |
+| **NRC** | ~14,000 words | 8 emotions + positive/negative | Profiling emotional texture |
+
+A critical point before we begin: **all three lexicons were developed primarily from general English text** — product reviews, social media, general news. Political speech is a distinct register with its own vocabulary, irony, and rhetorical conventions. We will revisit this limitation explicitly in the validation section.
+
+```{r}
+# Preview each lexicon
+get_sentiments("afinn") |> slice_sample(n = 6)
+```
+
+```{r}
+get_sentiments("bing") |> slice_sample(n = 6)
+```
+
+```{r}
+get_sentiments("nrc") |> slice_sample(n = 6)
+```
+
+Notice that the NRC lexicon assigns words to *multiple* emotion categories — a word like "fire" might appear under both "fear" and "anger". This means a simple word count can exceed the number of unique words in a document.
+
+---
+
+# AFINN: A Continuous Sentiment Score
+
+AFINN assigns each word an integer score from $-5$ (most negative) to $+5$ (most positive). This makes it natural for computing an aggregate sentiment score per document: sum the scores, then divide by the number of scored words to get a comparable measure across addresses of different lengths.
+
+## Computing AFINN Sentiment per Address
+
+```{r}
+afinn <- get_sentiments("afinn")
+
+sotu_afinn <- tidy_sotu |>
+  inner_join(afinn, by = "word") |>
+  group_by(year, president, party_grouped, era) |>
+  summarise(
+    sentiment_sum  = sum(value),
+    sentiment_mean = mean(value),
+    n_scored       = n(),
+    .groups = "drop"
+  )
+
+sotu_afinn |>
+  arrange(sentiment_mean) |>
+  slice_head(n = 5) |>
+  select(year, president, party_grouped, sentiment_mean, n_scored)
+```
+
+```{r}
+sotu_afinn |>
+  arrange(desc(sentiment_mean)) |>
+  slice_head(n = 5) |>
+  select(year, president, party_grouped, sentiment_mean, n_scored)
+```
+
+The most negative addresses tend to cluster around periods of war, economic crisis, or social upheaval. The most positive cluster around postwar optimism or deliberate rhetorical uplift. Already we can see the method generating substantively interpretable results — but we should hold these interpretations provisionally until we have validated the measure.
+
+## Sentiment Over Time
+
+```{r}
+#| label: fig-afinn-time
+#| fig-cap: "Mean AFINN sentiment score per State of the Union address (1790–2021). The smoothed trend line highlights long-run patterns; individual points are coloured by party."
+
+ggplot(sotu_afinn, aes(x = year, y = sentiment_mean)) +
+  geom_hline(yintercept = 0, linetype = "dashed", colour = "gray60") +
+  geom_point(aes(colour = party_grouped), alpha = 0.6, size = 1.8) +
+  geom_smooth(method = "loess", span = 0.2,
+              colour = "black", linewidth = 0.8, se = TRUE) +
+  scale_colour_manual(
+    values = c(
+      "Republican"     = "#CC0000",
+      "Democratic"     = "#0072B2",
+      "Dem-Republican" = "#2D9E6B",
+      "Other/Early"    = "#888888"
+    ),
+    name = "Party"
+  ) +
+  scale_x_continuous(breaks = seq(1800, 2020, 20)) +
+  labs(
+    title = "Sentiment in State of the Union Addresses (1790–2021)",
+    subtitle = "AFINN mean score per address · smoothed trend in black",
+    x = "Year",
+    y = "Mean AFINN score"
+  ) +
+  theme_minimal(base_size = 12) +
+  theme(legend.position = "bottom")
+```
+
+## Sentiment by President
+
+```{r}
+#| label: fig-afinn-president
+#| fig-cap: "Mean AFINN sentiment score aggregated across all addresses per president. Error bars show the range across individual addresses."
+
+sotu_afinn |>
+  group_by(president, party_grouped) |>
+  summarise(
+    mean_sent = mean(sentiment_mean),
+    min_sent  = min(sentiment_mean),
+    max_sent  = max(sentiment_mean),
+    n         = n(),
+    .groups   = "drop"
+  ) |>
+  filter(n >= 2) |>   # only presidents with multiple addresses
+  mutate(president = fct_reorder(president, mean_sent)) |>
+  ggplot(aes(x = mean_sent, y = president, colour = party_grouped)) +
+  geom_vline(xintercept = 0, linetype = "dashed", colour = "gray60") +
+  geom_linerange(aes(xmin = min_sent, xmax = max_sent), alpha = 0.4) +
+  geom_point(size = 2.5) +
+  scale_colour_manual(
+    values = c(
+      "Republican"     = "#CC0000",
+      "Democratic"     = "#0072B2",
+      "Dem-Republican" = "#2D9E6B",
+      "Other/Early"    = "#888888"
+    ),
+    name = "Party"
+  ) +
+  labs(
+    title = "Mean AFINN Sentiment by President",
+    subtitle = "Presidents with 2+ addresses · bars show min–max range",
+    x = "Mean AFINN score",
+    y = NULL
+  ) +
+  theme_minimal(base_size = 11) +
+  theme(legend.position = "bottom")
+```
+
+The range bars reveal something important: many presidents show substantial *within-president* variation across their addresses. Roosevelt's wartime addresses read very differently from his New Deal speeches. This reminds us that aggregating to the president level discards meaningful temporal variation — a decision that should be deliberate, not automatic.
+
+---
+
+# Bing: Positive and Negative Ratios
+
+The Bing lexicon classifies words as simply positive or negative. This binary structure makes it natural for computing the *ratio* of positive to negative words — or, equivalently, the *net sentiment* (positive count minus negative count) as a share of all scored words.
+
+## Net Sentiment per Address
+
+```{r}
+bing <- get_sentiments("bing")
+
+sotu_bing <- tidy_sotu |>
+  inner_join(bing, by = "word") |>
+  count(year, president, party_grouped, era, sentiment) |>
+  pivot_wider(names_from = sentiment, values_from = n, values_fill = 0) |>
+  mutate(
+    net_sentiment  = positive - negative,
+    total_scored   = positive + negative,
+    pct_positive   = positive / total_scored
+  )
+
+sotu_bing |>
+  select(year, president, positive, negative, net_sentiment, pct_positive) |>
+  arrange(pct_positive) |>
+  slice_head(n = 6)
+```
+
+## Comparing AFINN and Bing
+
+A useful internal validity check: do AFINN and Bing scores agree? Both claim to measure positive/negative sentiment, so they should correlate — but they draw on different word lists and weighting schemes, so the correlation will not be perfect.
+
+```{r}
+#| label: fig-afinn-bing-compare
+#| fig-cap: "Correlation between AFINN mean score and Bing percentage positive across SOTU addresses. High agreement is evidence of convergent validity; systematic divergences are informative."
+
+sentiment_compare <- sotu_afinn |>
+  select(year, president, sentiment_mean) |>
+  inner_join(
+    sotu_bing |> select(year, pct_positive),
+    by = "year"
+  )
+
+ggplot(sentiment_compare,
+       aes(x = sentiment_mean, y = pct_positive, label = president)) +
+  geom_point(alpha = 0.5, colour = "#1B6CA8", size = 2) +
+  geom_smooth(method = "lm", colour = "gray30", linetype = 2, se = FALSE) +
+  geom_text_repel(
+    data = sentiment_compare |>
+      filter(
+        sentiment_mean < quantile(sentiment_mean, 0.07) |
+        sentiment_mean > quantile(sentiment_mean, 0.93) |
+        pct_positive   < quantile(pct_positive,   0.07) |
+        pct_positive   > quantile(pct_positive,   0.93)
+      ),
+    size = 3, max.overlaps = 12
+  ) +
+  labs(
+    title = "AFINN vs Bing Sentiment: Convergent Validity Check",
+    subtitle = "Each point is one SOTU address · outliers labelled",
+    x = "AFINN mean score",
+    y = "Bing: proportion positive"
+  ) +
+  theme_minimal(base_size = 12)
+```
+
+A strong positive correlation is reassuring — both lexicons broadly agree on which addresses are more positive and which more negative. Addresses that diverge substantially between the two measures are worth examining closely: they may contain words that one lexicon scores as positive but the other does not include, or vice versa.
+
+---
+
+# NRC: Emotion Profiling
+
+The NRC lexicon goes beyond positive/negative to classify words into eight discrete emotions drawn from psychological theory: **anger**, **anticipation**, **disgust**, **fear**, **joy**, **sadness**, **surprise**, and **trust**. Each word can belong to multiple categories.
+
+This richer structure lets us ask not just *how positive is this speech?* but *what is its emotional texture?* — a more nuanced and sociologically interesting question.
+
+## Computing NRC Emotion Profiles
+
+```{r}
+nrc <- get_sentiments("nrc")
+
+# Focus on the eight emotions, excluding the generic pos/neg labels
+nrc_emotions <- nrc |>
+  filter(!sentiment %in% c("positive", "negative"))
+
+sotu_nrc <- tidy_sotu |>
+  inner_join(nrc_emotions, by = "word") |>
+  count(year, president, party_grouped, era, sentiment) |>
+  group_by(year, president, party_grouped, era) |>
+  mutate(proportion = n / sum(n)) |>
+  ungroup()
+
+sotu_nrc |>
+  filter(year == 2001) |>
+  arrange(desc(proportion)) |>
+  select(president, sentiment, n, proportion)
+```
+
+## Emotion Profiles Over Time
+
+```{r}
+#| label: fig-nrc-time
+#| fig-cap: "Proportion of NRC emotion words per address across time, smoothed by loess. Each panel tracks one emotion."
+#| fig-height: 7
+
+sotu_nrc |>
+  group_by(year, sentiment) |>
+  summarise(proportion = mean(proportion), .groups = "drop") |>
+  ggplot(aes(x = year, y = proportion, colour = sentiment)) +
+  geom_line(alpha = 0.3, linewidth = 0.4) +
+  geom_smooth(method = "loess", span = 0.3,
+              linewidth = 0.9, se = FALSE) +
+  facet_wrap(~sentiment, scales = "free_y", ncol = 4) +
+  scale_x_continuous(breaks = c(1800, 1900, 2000)) +
+  scale_colour_brewer(palette = "Dark2") +
+  labs(
+    title = "NRC Emotion Profiles in SOTU Addresses (1790–2021)",
+    subtitle = "Proportion of emotion-scored words · loess smoothed",
+    x = "Year",
+    y = "Proportion of scored words"
+  ) +
+  theme_minimal(base_size = 10) +
+  theme(
+    legend.position = "none",
+    strip.text = element_text(face = "bold")
+  )
+```
+
+## Emotion Profiles by Party
+
+```{r}
+#| label: fig-nrc-party
+#| fig-cap: "Mean NRC emotion proportions by party (Republican vs Democratic addresses only). Error bars are 95% confidence intervals."
+
+sotu_nrc |>
+  filter(party_grouped %in% c("Republican", "Democratic")) |>
+  group_by(party_grouped, sentiment) |>
+  summarise(
+    mean_prop = mean(proportion),
+    se        = sd(proportion) / sqrt(n()),
+    .groups   = "drop"
+  ) |>
+  ggplot(aes(x = sentiment, y = mean_prop,
+             fill = party_grouped, colour = party_grouped)) +
+  geom_col(position = position_dodge(0.8), width = 0.7, alpha = 0.8) +
+  geom_errorbar(
+    aes(ymin = mean_prop - 1.96 * se,
+        ymax = mean_prop + 1.96 * se),
+    position = position_dodge(0.8), width = 0.25
+  ) +
+  scale_fill_manual(values = c("Republican" = "#CC0000",
+                               "Democratic" = "#0072B2")) +
+  scale_colour_manual(values = c("Republican" = "#CC0000",
+                                 "Democratic" = "#0072B2")) +
+  labs(
+    title = "NRC Emotion Profiles by Party — SOTU Addresses",
+    subtitle = "Mean proportion of emotion-scored words · error bars = 95% CI",
+    x = NULL,
+    y = "Mean proportion",
+    fill = NULL, colour = NULL
+  ) +
+  theme_minimal(base_size = 12) +
+  theme(legend.position = "bottom")
+```
+
+Differences between parties should be interpreted carefully. Because Republican and Democratic presidents governed in different historical periods (most Republican addresses predate WWII; most Democratic ones postdate it), observed party differences may partly reflect *era* effects rather than genuine ideological differences in emotional language. This is a confounding problem that basic dictionary counting cannot resolve on its own — it requires the kind of controls that regression or matching could provide.
+
+---
+
+# Validation: Does the Lexicon Travel?
+
+The three lexicons we have used were built from general English text — primarily news, product reviews, and social media. Political speech is a different register. Before drawing substantive conclusions, we need to ask: **does the measurement actually capture what we think it captures?**
+
+## Conceptual Limits
+
+Three specific problems arise with sentiment lexicons in political contexts:
+
+**Negation is ignored.** "This will *not* fail" is treated as containing the word "fail" and scored negatively, when the intended meaning is positive. Simple bag-of-words approaches cannot handle negation without additional preprocessing.
+
+**Context shifts meaning.** "Fire" scores as negative (danger, destruction) in most contexts but positive in "fired with enthusiasm". "Sanctions" might score neutrally but is substantively negative in foreign policy discourse. The word's meaning depends on its sentence context, which the lexicon ignores.
+
+**Domain mismatch.** Words like "crisis", "risk", "threat", and "danger" are the routine vocabulary of governance — a budget speech will use them without implying the same emotional valence as a tabloid headline. Scores that look dramatic may simply reflect that political speech *routinely discusses difficult topics*, not that it is more negative in tone.
+
+## A Practical Validation Exercise
+
+A principled way to probe the measurement is to compare lexicon scores against a known external marker — a period or event where we have strong prior expectations about tone.
+
+We use the **post-9/11 address** (2002) as an anchor. This is an address we can read and judge: it is widely characterised as a speech that combined fear and determination, and was delivered in the aftermath of a national trauma. Does the lexicon output match this expectation?
+
+```{r}
+# Pull the scores for the 2001 and 2002 addresses
+validation_years <- c(2001, 2002, 2003)
+
+sotu_afinn |>
+  filter(year %in% validation_years) |>
+  select(year, president, sentiment_mean, n_scored)
+```
+
+```{r}
+# What are the top negative words driving the score?
+tidy_sotu |>
+  filter(year == 2002) |>
+  inner_join(afinn, by = "word") |>
+  filter(value < 0) |>
+  count(word, value, sort = TRUE) |>
+  mutate(contribution = value * n) |>
+  slice_head(n = 15)
+```
+
+```{r}
+# And the top positive words?
+tidy_sotu |>
+  filter(year == 2002) |>
+  inner_join(afinn, by = "word") |>
+  filter(value > 0) |>
+  count(word, value, sort = TRUE) |>
+  mutate(contribution = value * n) |>
+  slice_head(n = 15)
+```
+
+Examining which specific words *drive* a sentiment score is one of the most important validation practices in dictionary-based research. If the negative score in 2002 is driven by "terror", "attack", "evil", and "war", the measure has face validity for that address. If it is driven by "negative", "opposite", or "critical" used in unrelated senses, the measure is capturing noise.
+
+## Word Contribution Plot
+
+Visualising word contributions makes the driving forces transparent and communicable:
+
+```{r}
+#| label: fig-contribution
+#| fig-cap: "Words contributing most to positive and negative AFINN sentiment in the 2002 SOTU address (George W. Bush, post-9/11). Word contribution = score × frequency."
+
+tidy_sotu |>
+  filter(year == 2002) |>
+  inner_join(afinn, by = "word") |>
+  count(word, value) |>
+  mutate(
+    contribution = value * n,
+    sentiment    = if_else(contribution > 0, "Positive", "Negative"),
+    word         = fct_reorder(word, contribution)
+  ) |>
+  slice_max(abs(contribution), n = 20) |>
+  ggplot(aes(x = word, y = contribution, fill = sentiment)) +
+  geom_col() +
+  coord_flip() +
+  scale_fill_manual(values = c("Positive" = "#0072B2",
+                               "Negative" = "#CC0000")) +
+  labs(
+    title = "Word Contributions to AFINN Sentiment",
+    subtitle = "2002 SOTU Address (Bush) · Top 20 contributing words",
+    x = NULL,
+    y = "Contribution (score × frequency)",
+    fill = NULL
+  ) +
+  theme_minimal(base_size = 12) +
+  theme(legend.position = "bottom")
+```
+
+This plot is a diagnostic as much as a result. If the words driving the score make substantive sense in context, the measure has credibility. If high-scoring words are domain-specific false positives, you have identified a measurement problem that needs to be addressed — either by extending the stop word list, by building a custom dictionary, or by switching to a domain-adapted lexicon.
+
+---
+
+# Building a Custom Political Dictionary
+
+Off-the-shelf lexicons are a starting point, not an end point. When your construct is domain-specific — crisis rhetoric, populist language, austerity framing — you need a dictionary built for that context.
+
+## The Logic of Custom Dictionary Construction
+
+A custom dictionary is built in three stages:
+
+1. **Conceptual definition** — what is the underlying construct? Be explicit. "Crisis language" is vague; "words that frame economic conditions as threatening emergency requiring immediate action" is a testable definition.
+
+2. **Seed word generation** — brainstorm an initial word list from theory, prior literature, or close reading of a sample of texts. This list will be imperfect and should be treated as a draft.
+
+3. **Validation** — check coverage (are there relevant words you missed?) and precision (are there words that match on form but not meaning?). Ideally compare to human-coded ground truth on a held-out sample.
+
+## Example: A Crisis Language Dictionary
+
+We build a small dictionary for **crisis language** — words that frame political and economic conditions as threatening, urgent, or collapsing. This is a theoretically motivated construct with a clear social science use case: tracking how presidents rhetorically escalate or de-escalate the sense of emergency around policy issues.
+
+```{r}
+# Define the dictionary as a named list of word vectors
+# In a real project this would be much larger and
+# built through systematic literature review and
+# iterative validation against human-coded text
+
+crisis_dict <- dictionary(list(
+  crisis_threat = c(
+    "crisis", "crises", "threat", "threats", "danger", "dangers",
+    "emergency", "emergencies", "catastrophe", "catastrophic",
+    "disaster", "disasters", "collapse", "collaps*",
+    "devastat*", "destruction", "destruct*"
+  ),
+  crisis_urgency = c(
+    "urgent", "urgency", "immediate", "immediately", "critical",
+    "imperative", "compel*", "desperate", "desperately",
+    "must", "cannot wait", "no time"
+  ),
+  crisis_economy = c(
+    "recession", "depression", "unemployment", "deficit",
+    "debt", "bankrupt*", "foreclosur*", "poverty",
+    "hardship", "struggle*", "suffer*", "austerity"
+  )
+))
+
+crisis_dict
+```
+
+::: {.callout-warning}
+## Wildcards in quanteda dictionaries
+
+The asterisk `*` is a **wildcard** in quanteda dictionary syntax — `"devastat*"` will match "devastate", "devastated", "devastating", "devastation", and so on. This increases recall but requires careful checking: `"suffer*"` will match "suffer", "suffering", "suffered" (all relevant) but also "sufferable" and "sufficiency" if your stemming is not applied first. Always inspect matched tokens after applying a dictionary.
+:::
+
+## Applying the Dictionary with quanteda
+
+```{r}
+# Build a corpus and DFM from the SOTU data
+sotu_df <- sotu_df |>
+  mutate(doc_id = paste0("sotu_", row_number()))
+
+sotu_corpus <- corpus(sotu_df, text_field = "text",
+                      docid_field = "doc_id")
+
+sotu_tokens <- sotu_corpus |>
+  tokens(remove_punct = TRUE, remove_numbers = TRUE) |>
+  tokens_tolower()
+
+# Apply the custom dictionary
+crisis_dfm <- sotu_tokens |>
+  tokens_lookup(dictionary = crisis_dict) |>
+  dfm()
+
+# Convert to a tidy data frame for plotting
+crisis_counts <- crisis_dfm |>
+  convert(to = "data.frame") |>
+  as_tibble() |>
+  rename(year = doc_id) |>
+  mutate(year = as.integer(year)) |>
+  left_join(sotu_df |> select(year, president, party_grouped, era),
+            by = "year") |>
+  # Normalise by total token count per address
+  left_join(
+    sotu_df |>
+      unnest_tokens(word, text) |>
+      count(year, name = "total_words"),
+    by = "year"
+  ) |>
+  mutate(
+    crisis_threat_pct  = crisis_threat  / total_words * 100,
+    crisis_urgency_pct = crisis_urgency / total_words * 100,
+    crisis_economy_pct = crisis_economy / total_words * 100,
+    crisis_total_pct   = (crisis_threat + crisis_urgency + crisis_economy) /
+                          total_words * 100
+  )
+
+crisis_counts |>
+  select(year, president, crisis_threat_pct,
+         crisis_urgency_pct, crisis_economy_pct) |>
+  arrange(desc(crisis_threat_pct)) |>
+  slice_head(n = 8)
+```
+
+## Crisis Language Over Time
+
+```{r}
+#| label: fig-crisis-time
+#| fig-cap: "Crisis language as a percentage of total words in SOTU addresses (1790–2021). Each sub-dictionary is shown separately to distinguish the type of crisis framing."
+#| fig-height: 6
+
+crisis_counts |>
+  select(year, party_grouped,
+         crisis_threat_pct, crisis_urgency_pct, crisis_economy_pct) |>
+  pivot_longer(
+    cols = ends_with("_pct"),
+    names_to  = "category",
+    values_to = "pct"
+  ) |>
+  mutate(
+    category = recode(category,
+      "crisis_threat_pct"  = "Threat language",
+      "crisis_urgency_pct" = "Urgency language",
+      "crisis_economy_pct" = "Economic crisis language"
+    )
+  ) |>
+  ggplot(aes(x = year, y = pct, colour = category)) +
+  geom_line(alpha = 0.25, linewidth = 0.4) +
+  geom_smooth(method = "loess", span = 0.2,
+              linewidth = 0.9, se = FALSE) +
+  scale_colour_brewer(palette = "Set1", name = NULL) +
+  scale_x_continuous(breaks = seq(1800, 2020, 20)) +
+  labs(
+    title = "Crisis Language in SOTU Addresses (1790–2021)",
+    subtitle = "Custom dictionary · percentage of total words · loess smoothed",
+    x = "Year",
+    y = "% of total words"
+  ) +
+  theme_minimal(base_size = 12) +
+  theme(legend.position = "bottom")
+```
+
+## Crisis Language by Party
+
+```{r}
+#| label: fig-crisis-party
+#| fig-cap: "Mean crisis language scores for Republican and Democratic presidents. Comparisons should be interpreted with caution given the unequal era distribution across parties."
+
+crisis_counts |>
+  filter(party_grouped %in% c("Republican", "Democratic")) |>
+  group_by(party_grouped) |>
+  summarise(
+    threat  = mean(crisis_threat_pct),
+    urgency = mean(crisis_urgency_pct),
+    economy = mean(crisis_economy_pct),
+    .groups = "drop"
+  ) |>
+  pivot_longer(-party_grouped,
+               names_to = "category", values_to = "mean_pct") |>
+  mutate(
+    category = recode(category,
+      "threat"  = "Threat language",
+      "urgency" = "Urgency language",
+      "economy" = "Economic crisis language"
+    )
+  ) |>
+  ggplot(aes(x = category, y = mean_pct,
+             fill = party_grouped)) +
+  geom_col(position = position_dodge(0.7), width = 0.6, alpha = 0.85) +
+  scale_fill_manual(
+    values = c("Republican" = "#CC0000", "Democratic" = "#0072B2"),
+    name = NULL
+  ) +
+  labs(
+    title = "Crisis Language by Party — SOTU Addresses",
+    subtitle = "Mean % of total words · parties in different eras, interpret with care",
+    x = NULL,
+    y = "Mean % of total words"
+  ) +
+  theme_minimal(base_size = 12) +
+  theme(legend.position = "bottom")
+```
+
+::: {.callout-warning}
+## The era confound
+
+Republican presidents dominated the 19th and early 20th centuries — a period that includes the Civil War, World War I, and the Great Depression. Democratic presidents dominate the post-WWII era through to the present. Any raw party comparison on this corpus therefore conflates *party* with *historical period*. If Republicans score higher on crisis language, it may be because they governed during objectively more crisis-ridden moments, not because of anything ideologically distinctive about Republican rhetoric. Controlling for era, or restricting comparisons to overlapping periods, is essential before drawing partisan conclusions.
+:::
+
+---
+
+# Comparing All Three Measures
+
+We now have four sentiment/dictionary measures for each address: AFINN, Bing, and two dimensions from our custom dictionary. Comparing them together reveals both convergence (evidence of validity) and divergence (evidence of domain-specific measurement problems).
+
+```{r}
+#| label: fig-all-measures
+#| fig-cap: "All sentiment measures plotted over time. Shaded bands mark major crisis periods: Civil War (1861–65), WWI (1917–18), Great Depression (1929–33), WWII (1941–45), 2008 financial crisis."
+
+# Merge all measures
+all_measures <- sotu_afinn |>
+  select(year, sentiment_mean) |>
+  left_join(sotu_bing |> select(year, pct_positive), by = "year") |>
+  left_join(crisis_counts |> select(year, crisis_total_pct), by = "year") |>
+  # Rescale all to 0-1 for comparison
+  mutate(
+    afinn_scaled  = (sentiment_mean - min(sentiment_mean, na.rm = TRUE)) /
+                    diff(range(sentiment_mean, na.rm = TRUE)),
+    bing_scaled   = pct_positive,
+    crisis_scaled = 1 - (crisis_total_pct / max(crisis_total_pct, na.rm = TRUE))
+  ) |>
+  pivot_longer(
+    cols = ends_with("_scaled"),
+    names_to  = "measure",
+    values_to = "score"
+  ) |>
+  mutate(
+    measure = recode(measure,
+      "afinn_scaled"  = "AFINN (rescaled)",
+      "bing_scaled"   = "Bing (% positive)",
+      "crisis_scaled" = "Crisis dict (inverted)"
+    )
+  )
+
+# Crisis period annotations
+crisis_periods <- tibble(
+  xmin = c(1861, 1917, 1929, 1941, 2008),
+  xmax = c(1865, 1918, 1933, 1945, 2010),
+  label = c("Civil War", "WWI", "Depression", "WWII", "GFC")
+)
+
+ggplot(all_measures, aes(x = year, y = score, colour = measure)) +
+  geom_rect(
+    data = crisis_periods,
+    aes(xmin = xmin, xmax = xmax, ymin = -Inf, ymax = Inf),
+    inherit.aes = FALSE,
+    fill = "gray90", alpha = 0.6
+  ) +
+  geom_text(
+    data = crisis_periods,
+    aes(x = (xmin + xmax) / 2, y = 0.05, label = label),
+    inherit.aes = FALSE,
+    size = 2.5, colour = "gray50", angle = 90, hjust = 0
+  ) +
+  geom_line(alpha = 0.25, linewidth = 0.4) +
+  geom_smooth(method = "loess", span = 0.2,
+              linewidth = 0.9, se = FALSE) +
+  scale_colour_brewer(palette = "Dark2", name = NULL) +
+  scale_x_continuous(breaks = seq(1800, 2020, 20)) +
+  labs(
+    title = "Sentiment Measures Compared — SOTU Addresses",
+    subtitle = "All measures rescaled to [0, 1] · shaded areas = major crisis periods",
+    x = "Year",
+    y = "Rescaled score (higher = more positive)"
+  ) +
+  theme_minimal(base_size = 12) +
+  theme(legend.position = "bottom")
+```
+
+Where the three measures move together — especially around the shaded crisis periods — we have some evidence of convergent validity. Where they diverge, we have a puzzle worth investigating: is one measure picking up genuine signal the others miss, or is one capturing noise?
+
+---
+
+# Discussion Questions
+
+*5 minutes individual thinking · 10 minutes group discussion*
+
+**Question 1 — Domain mismatch in your own research area.**
+If you were applying one of these lexicons to text from your own field — parliamentary debates, social media posts, survey open-ends, news articles — which words would you most worry about? What preprocessing steps or dictionary adaptations would you consider?
+
+**Question 2 — The era confound.**
+We saw that comparing Republican and Democratic addresses directly is complicated by the fact that these parties governed in different historical periods. How would you design a study to separate *partisan* from *historical* variation in political language? What data or methods would you need?
+
+---
+
+# Take-Home Exercise
+
+Complete before Week 3. Bring your output and interpretation to class.
+
+**Exercise 1 — Single-president deep dive.** Pick one president who served during a major crisis (e.g. Roosevelt, Truman, Nixon, Obama). Extract all their SOTU addresses, compute AFINN sentiment per address, and plot the trajectory over their presidency. Do the scores move in the direction you would expect given what you know about their tenure?
+
+```{r}
+#| eval: false
+
+# Starter code — replace "Roosevelt" with your chosen president
+president_name <- "Roosevelt"
+
+tidy_sotu |>
+  filter(president == president_name) |>
+  inner_join(get_sentiments("afinn"), by = "word") |>
+  group_by(year) |>
+  summarise(sentiment_mean = mean(value), n = n()) |>
+  ggplot(aes(x = year, y = sentiment_mean)) +
+  geom_line() +
+  geom_point() +
+  # --- add labels, theme, annotations ---
+  labs(title = paste("AFINN Sentiment:", president_name))
+```
+
+**Exercise 2 — Extend the crisis dictionary.** Add at least five new words to one of the three sub-dictionaries (`crisis_threat`, `crisis_urgency`, `crisis_economy`). Justify each addition with a sentence. Re-run the time-series plot and compare to the original. How sensitive are the results to your additions?
+
+```{r}
+#| eval: false
+
+# Starter code — extend the crisis_economy sub-dictionary
+crisis_dict_v2 <- dictionary(list(
+  crisis_threat = c(
+    "crisis", "crises", "threat", "threats", "danger", "dangers",
+    "emergency", "emergencies", "catastrophe", "catastrophic",
+    "disaster", "disasters", "collapse", "collaps*",
+    "devastat*", "destruction", "destruct*"
+  ),
+  crisis_urgency = c(
+    "urgent", "urgency", "immediate", "immediately", "critical",
+    "imperative", "compel*", "desperate", "desperately",
+    "must", "cannot wait", "no time"
+  ),
+  crisis_economy = c(
+    "recession", "depression", "unemployment", "deficit",
+    "debt", "bankrupt*", "foreclosur*", "poverty",
+    "hardship", "struggle*", "suffer*", "austerity",
+    # --- add your new words here ---
+    "YOUR_WORD_1", "YOUR_WORD_2"
+  )
+))
+
+# Re-run the pipeline with crisis_dict_v2
+```
+
+**Exercise 3 — Write your interpretation.** Write 3–4 sentences addressing: What is one finding from today's session that you find substantively credible, and why? What is one finding you are skeptical of, and what would you do to test whether the measurement is valid for that claim?
+
+---
+
+# What Comes Next
+
+This week we applied dictionary methods and sentiment analysis to political speech, and confronted the validation problem that sits at the heart of all dictionary-based research. Next week we move to unsupervised methods that let the data reveal its own structure.
+
+**Week 3 — Topic Modelling.** We introduce Latent Dirichlet Allocation (LDA) and the Structural Topic Model (STM). Rather than bringing a predefined word list, topic models discover thematic clusters from the corpus itself. We will ask: what themes run through the SOTU corpus, how have they changed over time, and how do they vary by party?
+
+**Week 4 — Classification & Beyond.** Supervised classifiers, word embeddings, and an introduction to transformer-based language models.
+
+---
+
+# References
+
+- Silge, J. & Robinson, D. (2017). *Text Mining with R: A Tidy Approach*. O'Reilly Media. <https://www.tidytextmining.com>
+- Mohammad, S. & Turney, P. (2013). Crowdsourcing a word-emotion association lexicon. *Computational Intelligence*, 29(3), 436–465. [NRC lexicon]
+- Nielsen, F. Å. (2011). A new ANEW: Evaluation of a word list for sentiment analysis in microblogs. *ESWC Workshop on Making Sense of Microposts*. [AFINN lexicon]
+- Hu, M. & Liu, B. (2004). Mining and summarizing customer reviews. *KDD '04*. [Bing lexicon]
+- Young, L. & Soroka, S. (2012). Affective news: The automated coding of sentiment in political texts. *Political Communication*, 29(2), 205–231.
+- Benoit, K. et al. (2018). quanteda: An R package for the quantitative analysis of textual data. *Journal of Open Source Software*, 3(30), 774.
+
+---
+
+*NLP for Social Scientists · Week 2 · Corvinus University of Budapest 2025/2026*
