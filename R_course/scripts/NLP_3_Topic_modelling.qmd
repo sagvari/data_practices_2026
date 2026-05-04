@@ -1,0 +1,736 @@
+---
+title: "NLP for Social Scientists"
+subtitle: "Week 3 — Topic Modelling: LDA and Structural Topic Models"
+author: "Bence Ságvári · Corvinus University of Budapest"
+date: "2025/2026"
+format:
+  html:
+    toc: true
+    toc-depth: 3
+    toc-title: "Contents"
+    number-sections: true
+    theme: cosmo
+    highlight-style: github
+    code-fold: false
+    code-tools: true
+    df-print: paged
+    fig-width: 9
+    fig-height: 5
+    embed-resources: true
+  pdf:
+    toc: true
+    toc-depth: 3
+    number-sections: true
+    colorlinks: true
+    highlight-style: github
+    fig-width: 7
+    fig-height: 4
+    geometry:
+      - top=25mm
+      - bottom=25mm
+      - left=25mm
+      - right=25mm
+execute:
+  echo: true
+  warning: false
+  message: false
+  cache: true
+---
+
+```{r}
+#| label: install-packages
+#| include: false
+#| cache: false
+
+cran_packages <- c(
+  "tidyverse",
+  "tidytext",
+  "sotu",
+  "quanteda",
+  "quanteda.textstats",
+  "stm",
+  "topicmodels",
+  "scales",
+  "knitr",
+  "ggthemes"
+)
+
+missing <- cran_packages[!cran_packages %in% installed.packages()[, "Package"]]
+
+if (length(missing) > 0) {
+  message("Installing missing packages: ", paste(missing, collapse = ", "))
+  install.packages(missing, repos = "https://cloud.r-project.org")
+}
+```
+
+```{r}
+#| label: setup
+#| include: false
+#| cache: false
+
+library(tidyverse)
+library(tidytext)
+library(sotu)
+library(quanteda)
+library(quanteda.textstats)
+library(stm)
+library(topicmodels)
+library(scales)
+library(knitr)
+library(ggthemes)
+```
+
+---
+
+# Where We Are on the Method Ladder
+
+Over the past two weeks we have worked with methods that depend on what we bring to the text: tf-idf ranks words by how distinctive they are relative to a grouping we define; dictionary methods count words from a list we supply. Both are **deductive** — the analyst's prior knowledge shapes what the method looks for.
+
+This week we move to the third rung: **topic modelling**. Topic models are **unsupervised** — we do not supply categories, labels, or word lists. Instead, we ask the model to discover thematic structure in the corpus by itself, based solely on patterns of word co-occurrence.
+
+| Step | Method | Research Question |
+|------|--------|-------------------|
+| **1** ✓ | Frequency & Keywords | What words are most distinctive of this corpus or group? |
+| **2** ✓ | Dictionary & Sentiment | How much negativity / populism / emotion is in these texts? |
+| **3 ←** | **Topic Modelling** | **What themes run through this corpus, and how do they vary?** |
+| **4** | Supervised Classification | Does this document express support or opposition to X? |
+| **5** | Embeddings & Language Models | Which documents are semantically closest to this concept? |
+
+The shift matters epistemologically. With deductive methods, you can always ask: "Did my word list miss something important?" With topic models, the question is reversed: "Are the patterns the model found meaningful, and do they correspond to anything theoretically interesting?" Both are valid research strategies; they answer different kinds of questions and carry different validation burdens.
+
+---
+
+# Latent Dirichlet Allocation: The Conceptual Foundation
+
+## The Basic Intuition
+
+Latent Dirichlet Allocation (LDA; Blei, Ng & Jordan 2003) rests on a generative story about how documents are written. Imagine a speaker preparing a presidential address. Before writing, they draw from a set of **topics** — abstract themes like "foreign policy", "economic growth", or "social welfare". Each topic is itself a probability distribution over words: the "foreign policy" topic makes words like *nation*, *allies*, *security*, and *peace* more likely; the "economic growth" topic favours *trade*, *jobs*, *investment*, and *growth*.
+
+The speaker's address is not purely about one topic. It mixes several — perhaps 60% foreign policy, 30% economics, 10% domestic reform. This mixture is what produces the actual text we observe.
+
+LDA works backwards from observed text to infer:
+
+1. **What are the topics?** — each topic as a distribution over words ($\beta$)
+2. **What mixture of topics does each document reflect?** — each document as a distribution over topics ($\theta$)
+
+Neither is directly observable. Both are latent — hence the name.
+
+## The Mathematics (Briefly)
+
+LDA assumes the following generative process for each document $d$:
+
+1. Draw a topic mixture $\theta_d \sim \text{Dirichlet}(\alpha)$
+2. For each word position $w$ in the document:
+   a. Draw a topic $z \sim \text{Multinomial}(\theta_d)$
+   b. Draw a word $w \sim \text{Multinomial}(\beta_z)$
+
+The **Dirichlet** distribution is a distribution over distributions — it produces probability vectors that sum to 1, making it a natural prior for both document-topic and topic-word mixtures. The hyperparameter $\alpha$ controls how spread out topic mixtures tend to be: high $\alpha$ pushes documents toward using many topics equally; low $\alpha$ produces sparser, more focused mixtures.
+
+Fitting LDA means finding the values of $\theta$ and $\beta$ that make the observed corpus most probable — typically via variational inference or Gibbs sampling.
+
+## What LDA Cannot Do
+
+LDA is powerful but has three well-known limitations that motivate the Structural Topic Model we use in the hands-on section:
+
+**No document metadata.** Standard LDA treats all documents as exchangeable draws from the same process. It cannot model how topic prevalence varies with party, year, or any other covariate. This is a serious limitation for social science, where the whole point is often to explain *why* some topics appear more in some documents than others.
+
+**Topics don't correlate.** LDA assumes topics are independent of each other. In reality, a document about "climate policy" is more likely to also discuss "energy" than "immigration". The Correlated Topic Model (CTM) relaxes this but adds complexity.
+
+**K must be chosen.** The number of topics $K$ is a hyperparameter the analyst must supply. There is no single correct answer; choosing $K$ requires a combination of statistical diagnostics and substantive judgement.
+
+---
+
+# The Structural Topic Model
+
+The Structural Topic Model (STM; Roberts, Stewart & Tingley 2019) extends LDA in two ways that are directly relevant for social science research:
+
+**Prevalence covariates** allow the topic mixture $\theta_d$ to vary as a function of document-level metadata. A presidential address from a Republican president in wartime will have a different expected topic mixture than one from a Democratic president during economic recovery — STM can model this explicitly.
+
+**Content covariates** allow the words associated with a topic to vary across groups. The "economy" topic might use different vocabulary in Republican vs Democratic speeches even when both are talking about economic conditions.
+
+The result is a model where topics are not just abstract word clusters — they are connected to the social and political structure of the corpus, making them directly interpretable in theoretical terms.
+
+## The STM Workflow
+
+```
+Raw text
+   ↓
+textProcessor()       ← tokenise, remove stopwords, stem, build vocab
+   ↓
+prepDocuments()       ← remove rare words, reindex, produce stm input format
+   ↓
+K selection           ← searchK() diagnostics: exclusivity + coherence
+   ↓
+stm()                 ← fit the model with prevalence covariates
+   ↓
+Interpretation        ← labelTopics(), findThoughts(), plot.STM()
+   ↓
+Effect estimation     ← estimateEffect() → topic ~ party + year
+```
+
+Each step is a deliberate analytical decision, not just a technical operation. Choices made in preprocessing — which stopwords to remove, what minimum term frequency to require, whether to stem — directly affect what topics emerge.
+
+---
+
+# The Corpus: State of the Union Addresses
+
+We continue with the SOTU corpus from Week 2. Students who worked through Weeks 1 and 2 already have intuitions about this corpus — tf-idf revealed era-specific vocabulary; sentiment analysis tracked emotional tone over time. Topic modelling now asks a different question: what underlying thematic structure organises this entire body of text, and how has it shifted across parties and history?
+
+```{r}
+#| label: load-data
+
+sotu_df <- sotu_meta |>
+  bind_cols(tibble(text = sotu_text)) |>
+  mutate(
+    party_grouped = case_when(
+      party == "Republican"           ~ "Republican",
+      party == "Democratic"           ~ "Democratic",
+      party == "Democratic-Republican" ~ "Dem-Republican",
+      TRUE                            ~ "Other/Early"
+    ),
+    era = case_when(
+      year < 1829 ~ "Founding Era (1789–1828)",
+      year < 1865 ~ "Antebellum (1829–1864)",
+      year < 1933 ~ "Industrial Age (1865–1932)",
+      year < 1981 ~ "New Deal & Cold War (1933–1980)",
+      TRUE        ~ "Contemporary (1981–2021)"
+    ),
+    # Numeric year centred at 1900 — better for STM regression
+    year_c = year - 1900,
+    # Binary: Republican = 1, Democratic = 0 (for STM covariate)
+    is_republican = as.integer(party_grouped == "Republican")
+  )
+
+glimpse(sotu_df)
+```
+
+---
+
+# Preprocessing for Topic Modelling
+
+Topic modelling preprocessing differs slightly from the tidytext pipeline we used in Weeks 1–2. We use `stm`'s own `textProcessor()` function, which handles tokenisation, stop word removal, and stemming in a single call and produces the sparse matrix format that `stm()` expects directly.
+
+## textProcessor and prepDocuments
+
+```{r}
+#| label: preprocess
+
+# textProcessor() tokenises, lowercases, removes stopwords,
+# removes numbers and punctuation, and stems all in one call.
+processed <- textProcessor(
+  documents  = sotu_df$text,
+  metadata   = sotu_df,
+  lowercase  = TRUE,
+  removestopwords = TRUE,
+  removenumbers   = TRUE,
+  removepunctuation = TRUE,
+  stem       = TRUE,
+  language   = "en",
+  verbose    = FALSE
+)
+
+# prepDocuments() removes words that appear in fewer than
+# 'lower.thresh' documents — rare words add noise and slow fitting.
+# It also re-indexes the vocabulary after removal.
+out <- prepDocuments(
+  processed$documents,
+  processed$vocab,
+  processed$meta,
+  lower.thresh = 5,   # word must appear in at least 5 addresses
+  verbose      = FALSE
+)
+
+cat("Documents:", length(out$documents), "\n")
+cat("Vocabulary size:", length(out$vocab), "\n")
+cat("Removed words appearing in fewer than 5 docs:",
+    length(processed$vocab) - length(out$vocab), "\n")
+```
+
+::: {.callout-note}
+## Why stem for topic modelling but not for tf-idf?
+
+In Week 1 we did not stem — "govern", "governs", "governing", "government" were kept as separate features, which is fine for tf-idf where we care about specific word forms. For topic modelling, stemming reduces vocabulary size substantially (here by several hundred types) and helps the model recognise that "economy" and "economic" are signals of the same underlying theme. The trade-off is interpretability: stemmed topic words like "econom" need to be mentally decoded. This is a genuine preprocessing choice, not a fixed rule.
+:::
+
+---
+
+# Choosing the Number of Topics K
+
+The number of topics $K$ is the single most consequential modelling decision in topic modelling. Too few topics and distinct themes are blended together; too many and coherent topics fragment into near-duplicates. There is no objectively correct $K$ — but there are principled diagnostics to guide the choice.
+
+`stm`'s `searchK()` function fits models across a range of $K$ values and computes four diagnostics:
+
+| Diagnostic | What it measures | Prefer |
+|---|---|---|
+| **Exclusivity** | How unique are the top words to each topic — do topics share words? | Higher |
+| **Semantic coherence** | Do the top words of each topic co-occur frequently in documents? | Higher |
+| **Held-out likelihood** | How well does the model predict held-out word occurrences? | Higher |
+| **Residuals** | Dispersion of document-level residuals | Lower |
+
+Exclusivity and coherence are the most practically useful. High coherence but low exclusivity means topics are semantically sensible but redundant. High exclusivity but low coherence means topics are distinctive but incoherent — their top words don't actually co-occur. The best $K$ balances both.
+
+```{r}
+#| label: search-k
+#| cache: true
+
+set.seed(42)
+
+k_search <- searchK(
+  documents = out$documents,
+  vocab     = out$vocab,
+  K         = c(5, 7, 10, 12, 15, 20),
+  prevalence = ~ party_grouped + s(year_c),
+  data      = out$meta,
+  verbose   = FALSE
+)
+```
+
+```{r}
+#| label: fig-search-k
+#| fig-cap: "Topic model diagnostics across candidate values of K. The ideal K balances high semantic coherence (topics are internally consistent) with high exclusivity (topics are distinct from each other)."
+#| fig-height: 6
+
+k_results <- tibble(
+  K           = unlist(k_search$results$K),
+  exclusivity = unlist(k_search$results$exclus),
+  coherence   = unlist(k_search$results$semcoh),
+  heldout     = unlist(k_search$results$heldout),
+  residual    = unlist(k_search$results$residual)
+)
+
+k_results |>
+  pivot_longer(-K, names_to = "metric", values_to = "value") |>
+  mutate(metric = recode(metric,
+    "exclusivity" = "Exclusivity (higher = better)",
+    "coherence"   = "Semantic Coherence (higher = better)",
+    "heldout"     = "Held-out Likelihood (higher = better)",
+    "residual"    = "Residuals (lower = better)"
+  )) |>
+  ggplot(aes(x = K, y = value)) +
+  geom_line(colour = "#1B6CA8", linewidth = 0.9) +
+  geom_point(colour = "#1B6CA8", size = 3) +
+  facet_wrap(~metric, scales = "free_y", ncol = 2) +
+  scale_x_continuous(breaks = c(5, 7, 10, 12, 15, 20)) +
+  labs(
+    title = "Topic Model Diagnostics — Choosing K",
+    subtitle = "SOTU corpus · STM with party + s(year) prevalence covariates",
+    x     = "Number of topics (K)",
+    y     = NULL
+  ) +
+  theme_minimal(base_size = 11) +
+  theme(strip.text = element_text(face = "bold"))
+```
+
+```{r}
+#| label: fig-excl-coh
+#| fig-cap: "Exclusivity–coherence trade-off plot. Each point is a candidate K value. The ideal model sits in the upper-right: high coherence and high exclusivity."
+
+k_results |>
+  ggplot(aes(x = coherence, y = exclusivity, label = K)) +
+  geom_point(size = 4, colour = "#1B6CA8") +
+  geom_text(vjust = -0.8, size = 4, fontface = "bold") +
+  labs(
+    title    = "Exclusivity vs Semantic Coherence",
+    subtitle = "Each label = number of topics K · upper-right is preferred",
+    x        = "Semantic Coherence",
+    y        = "Exclusivity"
+  ) +
+  theme_minimal(base_size = 12)
+```
+
+::: {.callout-tip}
+## How to read this plot for a decision
+
+Look for a "kink" in the exclusivity–coherence plot where adding more topics stops improving coherence but begins reducing exclusivity — this is the point of diminishing returns. For the SOTU corpus, $K$ in the range of 10–12 typically sits at this elbow. But always cross-check with substantive interpretation: do the resulting topics make sense as distinct political themes? A statistically optimal $K$ that produces uninterpretable topics is useless for social science.
+:::
+
+---
+
+# Fitting the STM
+
+Based on the diagnostics, we fit the full STM with $K = 10$. We include two prevalence covariates: `party_grouped` (to capture partisan variation in topic use) and `s(year_c)` (a spline of the centred year variable, allowing non-linear change over time).
+
+```{r}
+#| label: fit-stm
+#| cache: true
+
+set.seed(42)
+
+sotu_stm <- stm(
+  documents  = out$documents,
+  vocab      = out$vocab,
+  K          = 10,
+  prevalence = ~ party_grouped + s(year_c),
+  data       = out$meta,
+  init.type  = "Spectral",   # more stable initialisation than random
+  verbose    = FALSE
+)
+```
+
+```{r}
+# Quick summary of topic proportions
+plot(sotu_stm, type = "summary", main = "STM Topic Overview — SOTU Corpus")
+```
+
+The summary plot shows the expected proportion of each topic across the corpus and its top words. Topics with higher expected proportion are more prevalent across all addresses; the top words give a first read on what each topic covers.
+
+---
+
+# Interpreting the Topics
+
+Raw model output needs human interpretation. `stm` provides several complementary tools for labelling topics.
+
+## Top Words per Topic
+
+The `labelTopics()` function returns four different word lists for each topic:
+
+- **Highest probability** — the most frequent words in the topic
+- **FREX** (Frequency-Exclusivity) — words that are both common in the topic and rare elsewhere; often the most diagnostic
+- **Lift** — words weighted by how much more likely they are in this topic vs others
+- **Score** — a composite measure
+
+```{r}
+#| label: label-topics
+
+labelTopics(sotu_stm, n = 8)
+```
+
+FREX words are usually the most useful for labelling: they identify what is *distinctive* about a topic, not just what is *common* in it. A topic about foreign policy will have "nation" and "peace" as high-probability words (these appear everywhere) but "treaty", "allies", "aggression", or "soviet" as high-FREX words — these are what actually define the topic.
+
+## Assigning Topic Labels
+
+Based on the FREX words and document examples, we assign interpretive labels. This step requires substantive knowledge of the corpus — it cannot be automated:
+
+```{r}
+#| label: topic-labels
+
+# Edit these labels after inspecting labelTopics() output
+topic_labels <- c(
+  "1"  = "National Security & War",
+  "2"  = "Economic Growth & Trade",
+  "3"  = "Constitutional Government",
+  "4"  = "Social Welfare & Labour",
+  "5"  = "Foreign Policy & Diplomacy",
+  "6"  = "Fiscal Policy & Taxation",
+  "7"  = "Infrastructure & Development",
+  "8"  = "Civil Rights & Democracy",
+  "9"  = "Public Lands & Environment",
+  "10" = "Presidential Address Norms"
+)
+
+cat("Topic labels assigned. Review against labelTopics() output and adjust.\n")
+```
+
+::: {.callout-warning}
+## Topic labels are hypotheses, not facts
+
+The labels above are initial interpretations based on FREX words. They should be validated by reading actual documents that score high on each topic (`findThoughts()` below). It is common to revise labels after seeing which speeches load most heavily on each topic — a topic that looks like "Foreign Policy" from its words might turn out to be specifically about Cold War nuclear strategy once you read the associated texts.
+:::
+
+## Representative Documents
+
+`findThoughts()` retrieves the documents with the highest estimated proportion of a given topic — the most "on-topic" speeches for each theme:
+
+```{r}
+#| label: find-thoughts
+
+# Show the 3 most representative speeches for topic 1
+thoughts_t1 <- findThoughts(
+  sotu_stm,
+  texts = out$meta$text,
+  n     = 3,
+  topics = 1
+)
+
+# Print with president and year for context
+cat("=== Topic 1 (National Security & War) ===\n\n")
+for (i in seq_along(thoughts_t1$index[[1]])) {
+  idx <- thoughts_t1$index[[1]][i]
+  cat("President:", out$meta$president[idx],
+      "| Year:", out$meta$year[idx], "\n")
+  cat(str_trunc(out$meta$text[idx], 300), "\n\n")
+}
+```
+
+Reading these excerpts is the most important validation step. If the speeches surfaced for "National Security & War" are genuinely about military conflict and security, the topic label is credible. If they include peacetime domestic speeches, the label needs revision — or the topic is capturing something more diffuse than expected.
+
+---
+
+# Topic Prevalence Over Time and by Party
+
+The central advantage of STM over standard LDA is that we can now estimate how topic prevalence varies with covariates — treating topic proportions as outcome variables in a regression framework.
+
+## Topic Proportions per Document
+
+The central advantage of STM is that we have an estimated topic proportion (`theta`) for every document. We extract these directly with `make.dt()`, which returns a data table with one row per document, columns `Topic1`–`Topic10`, and all of our metadata variables alongside.
+
+```{r}
+#| label: extract-theta
+
+# make.dt() ships with stm and returns the document-topic matrix joined
+# with the metadata. One row per document; columns Topic1...Topic10 contain
+# the estimated proportions.
+theta_dt <- make.dt(sotu_stm, meta = out$meta) |>
+  as_tibble()
+
+# Reshape to long form for plotting and summarising
+theta_long <- theta_dt |>
+  pivot_longer(
+    cols      = starts_with("Topic"),
+    names_to  = "topic",
+    values_to = "proportion"
+  ) |>
+  mutate(
+    topic_num   = as.integer(str_remove(topic, "Topic")),
+    topic_label = topic_labels[as.character(topic_num)]
+  )
+
+theta_long |>
+  select(year, president, party_grouped, topic_label, proportion) |>
+  slice_head(n = 8)
+```
+
+This is descriptive — we are summarising the actual estimated topic proportions per document. For *inferential* analysis with proper standard errors, the `estimateEffect()` function from `stm` provides a regression-based approach that incorporates posterior uncertainty:
+
+```{r}
+#| label: estimate-effects-demo
+#| eval: false
+
+# Demonstrative — not used for the figures below.
+# estimateEffect() can be used for formal hypothesis testing with
+# proper uncertainty quantification:
+effects <- estimateEffect(
+  formula  = 1:10 ~ party_grouped + s(year_c),
+  stmobj   = sotu_stm,
+  metadata = out$meta,
+  uncertainty = "Global"
+)
+summary(effects, topics = 1)
+```
+
+For the visualisations in this document we work directly with the document-level topic proportions, which is sufficient to surface the substantive patterns and avoids the tooling complexity of effect simulation.
+
+## Topic Prevalence Over Time
+
+```{r}
+#| label: fig-topics-time
+#| fig-cap: "Estimated topic proportion per address, plotted against year. Each point is one address; the smoothed line is a loess fit per topic."
+#| fig-height: 10
+
+ggplot(theta_long,
+       aes(x = year, y = proportion)) +
+  geom_point(alpha = 0.25, size = 0.6, colour = "#1B6CA8") +
+  geom_smooth(method = "loess", span = 0.4,
+              colour = "#0D2D4F", linewidth = 0.8, se = TRUE,
+              fill = "#1B6CA8") +
+  facet_wrap(~topic_label, scales = "free_y", ncol = 2) +
+  scale_x_continuous(breaks = c(1800, 1900, 2000)) +
+  labs(
+    title    = "Topic Prevalence Over Time — SOTU Addresses",
+    subtitle = "Document-level topic proportions · loess smoothed",
+    x        = "Year",
+    y        = "Estimated topic proportion"
+  ) +
+  theme_minimal(base_size = 10) +
+  theme(strip.text = element_text(face = "bold", size = 8))
+```
+
+## Topic Prevalence by Party
+
+```{r}
+#| label: fig-topics-party
+#| fig-cap: "Mean topic proportion per party. Positive values along the x-axis indicate higher prevalence in Republican addresses; negative values indicate higher prevalence in Democratic addresses. Error bars show 95% confidence intervals around the difference."
+#| fig-height: 6
+
+# Compute mean per (topic, party), then Republican - Democratic difference
+party_summary <- theta_long |>
+  filter(party_grouped %in% c("Republican", "Democratic")) |>
+  group_by(topic_label, party_grouped) |>
+  summarise(
+    mean_prop = mean(proportion),
+    se        = sd(proportion) / sqrt(n()),
+    n         = n(),
+    .groups   = "drop"
+  )
+
+party_diff <- party_summary |>
+  select(topic_label, party_grouped, mean_prop, se) |>
+  pivot_wider(
+    names_from  = party_grouped,
+    values_from = c(mean_prop, se)
+  ) |>
+  mutate(
+    diff      = mean_prop_Republican - mean_prop_Democratic,
+    se_diff   = sqrt(se_Republican^2 + se_Democratic^2),
+    lower     = diff - 1.96 * se_diff,
+    upper     = diff + 1.96 * se_diff,
+    direction = if_else(diff > 0, "More Republican", "More Democratic")
+  ) |>
+  arrange(diff) |>
+  mutate(topic_label = fct_inorder(topic_label))
+
+ggplot(party_diff,
+       aes(x = diff, y = topic_label, fill = direction)) +
+  geom_col(alpha = 0.85) +
+  geom_errorbar(aes(xmin = lower, xmax = upper),
+                width = 0.25, colour = "gray30") +
+  geom_vline(xintercept = 0, linewidth = 0.5, colour = "gray30") +
+  scale_fill_manual(
+    values = c("More Republican" = "#CC0000",
+               "More Democratic" = "#0072B2"),
+    name   = NULL
+  ) +
+  labs(
+    title    = "Topic Prevalence: Republican vs Democratic Addresses",
+    subtitle = "Mean difference in proportion · error bars = 95% CI",
+    x        = "Republican mean - Democratic mean",
+    y        = NULL
+  ) +
+  theme_minimal(base_size = 12) +
+  theme(legend.position = "bottom")
+```
+
+::: {.callout-warning}
+## The era confound returns
+
+We flagged this in Week 2 and it applies here too. Republican presidents dominated the 19th and early 20th centuries; Democrats the post-WWII era. The simple difference of means shown here does *not* control for time. To properly separate party from era effects, you would use `estimateEffect()` with both `party_grouped` and `s(year_c)` as covariates, then estimate the partial effect of party while holding year at its median. Even with that adjustment, party and era remain correlated, and any partisan interpretation should be hedged accordingly.
+:::
+
+## Topic Correlation Structure
+
+```{r}
+#| label: fig-topic-corr
+#| fig-cap: "Correlation between topic proportions across documents. Positive correlations (blue) mean the two topics tend to co-occur in the same addresses; negative correlations (red) mean they tend not to."
+
+# Extract document-topic proportions
+theta_mat <- theta_dt |>
+  select(starts_with("Topic")) |>
+  as.matrix()
+
+colnames(theta_mat) <- topic_labels
+
+topic_cor <- cor(theta_mat)
+
+topic_cor |>
+  as_tibble(rownames = "topic1") |>
+  pivot_longer(-topic1, names_to = "topic2", values_to = "correlation") |>
+  filter(topic1 != topic2) |>
+  mutate(
+    topic1 = str_trunc(topic1, 22),
+    topic2 = str_trunc(topic2, 22)
+  ) |>
+  ggplot(aes(x = topic1, y = topic2, fill = correlation)) +
+  geom_tile(colour = "white", linewidth = 0.4) +
+  scale_fill_gradient2(
+    low      = "#CC0000",
+    mid      = "white",
+    high     = "#0072B2",
+    midpoint = 0,
+    limits   = c(-0.5, 0.5),
+    name     = "Correlation"
+  ) +
+  labs(
+    title = "Topic Co-occurrence Correlations",
+    x     = NULL,
+    y     = NULL
+  ) +
+  theme_minimal(base_size = 9) +
+  theme(
+    axis.text.x = element_text(angle = 40, hjust = 1),
+    legend.position = "right"
+  )
+```
+
+Topics that correlate positively tend to appear together in the same addresses — this is substantively informative. If "National Security" and "Foreign Policy" correlate strongly, that confirms they are related themes that presidents tend to address jointly. Strongly negative correlations suggest topics that occupy distinct discursive spaces.
+
+---
+
+---
+
+# Discussion Questions
+
+*5 minutes individual thinking · 10 minutes group discussion*
+
+**Question 1 — Topic validity.**
+Pick one topic from the SOTU model. Look at its FREX words and representative documents. Does it hang together as a coherent social-scientific concept? What would you name it, and what theoretical framework from your own field would you use to interpret it?
+
+**Question 2 — The unsupervised trade-off.**
+Topic models are inductive — they discover structure without prior theory. What are the epistemological consequences of this for social science inference? Can a topic model "confirm" a theory, or only generate hypotheses? How does this compare to the dictionary approach from Week 2?
+
+---
+
+# Take-Home Exercise
+
+Complete before Week 4. Bring your labelled topic output and interpretation to class.
+
+**Exercise 1 — Relabel and validate.** Run `labelTopics()` on the SOTU STM output. Propose your own labels for all 10 topics based on the FREX words. Then use `findThoughts()` to read two representative documents per topic. Revise any labels where the documents don't match your initial interpretation.
+
+```{r}
+#| eval: false
+
+# Relabel topics
+my_labels <- c(
+  "1" = "YOUR LABEL",
+  "2" = "YOUR LABEL"
+  # ... continue for all 10 topics
+)
+
+# Validate with representative documents
+for (k in 1:10) {
+  cat("\n=== Topic", k, ":", my_labels[as.character(k)], "===\n")
+  thoughts <- findThoughts(sotu_stm, texts = out$meta$text,
+                           n = 2, topics = k)
+  for (i in seq_along(thoughts$index[[1]])) {
+    idx <- thoughts$index[[1]][i]
+    cat("President:", out$meta$president[idx],
+        "| Year:", out$meta$year[idx], "\n")
+    cat(str_trunc(out$meta$text[idx], 250), "\n\n")
+  }
+}
+```
+
+**Exercise 2 — Change K.** Refit the SOTU STM with $K = 7$ and $K = 15$. Compare the topic structures. Which topics merge when $K$ decreases? Which split when $K$ increases? What does this tell you about the granularity of thematic structure in this corpus?
+
+```{r}
+#| eval: false
+
+set.seed(42)
+
+stm_k7 <- stm(
+  documents  = out$documents,
+  vocab      = out$vocab,
+  K          = 7,
+  prevalence = ~ party_grouped + s(year_c),
+  data       = out$meta,
+  init.type  = "Spectral",
+  verbose    = FALSE
+)
+
+# Compare labelTopics() output for K=7 vs K=10 vs K=15
+labelTopics(stm_k7, n = 8)
+```
+
+**Exercise 3 — Interpret a party effect.** Choose two topics where the Republican–Democratic difference in @fig-topics-party is large. Write 3–4 sentences for each: What does the topic cover? Why might it be more prevalent in one party's addresses? What alternative explanation (era confound, historical accident) could explain the pattern, and how would you test it?
+
+---
+
+# What Comes Next
+
+This week we moved from deductive methods to unsupervised discovery. Topic models let the corpus reveal its own thematic structure — but interpreting that structure, validating topic labels, and estimating covariate effects still requires deep substantive engagement from the researcher.
+
+**Week 4 — Supervised Classification & Beyond.** We train classifiers that learn from human-labelled examples, freeing us from both predefined dictionaries and unsupervised discovery. We introduce word embeddings (word2vec) as a richer representation of word meaning, and take a first look at how transformer-based language models (BERT, GPT) differ fundamentally from everything we have covered.
+
+---
+
+# References
+
+- Blei, D. M., Ng, A. Y., & Jordan, M. I. (2003). Latent Dirichlet allocation. *Journal of Machine Learning Research*, 3, 993–1022.
+- Roberts, M. E., Stewart, B. M., & Tingley, D. (2019). stm: An R Package for Structural Topic Models. *Journal of Statistical Software*, 91(2), 1–40.
+- Roberts, M. E., Stewart, B. M., Tingley, D., Lucas, C., Leder-Luis, J., Gadarian, S. K., Albertson, B., & Rand, D. G. (2014). Structural topic models for open-ended survey responses. *American Journal of Political Science*, 58(4), 1064–1082.
+- Grimmer, J. & Stewart, B. M. (2013). Text as data: The promise and pitfalls of automatic content analysis methods for political texts. *Political Analysis*, 21(3), 267–297.
+- Silge, J. & Robinson, D. (2017). *Text Mining with R: A Tidy Approach*. O'Reilly Media. <https://www.tidytextmining.com>
+- Benoit, K. et al. (2018). quanteda: An R package for the quantitative analysis of textual data. *Journal of Open Source Software*, 3(30), 774.
+
+---
+
+*NLP for Social Scientists · Week 3 · Corvinus University of Budapest 2025/2026*

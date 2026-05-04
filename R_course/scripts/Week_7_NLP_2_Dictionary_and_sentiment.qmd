@@ -235,8 +235,10 @@ The corpus covers addresses from 1790 to the early 2020s. Note the `sotu_type` v
 ```{r}
 data(stop_words)
 
+write_csv(sotu_df, "tidy_sotu.csv")
+
 tidy_sotu <- sotu_df |>
-  unnest_tokens(word, text) |>
+  unnest_tokens(word, text, token = "words") |>
   anti_join(stop_words, by = "word") |>
   filter(str_detect(word, "^[a-z]"))
 
@@ -260,6 +262,7 @@ A critical point before we begin: **all three lexicons were developed primarily 
 
 ```{r}
 # Preview each lexicon
+set.seed(123)
 get_sentiments("afinn") |> slice_sample(n = 6)
 ```
 
@@ -296,14 +299,14 @@ sotu_afinn <- tidy_sotu |>
 
 sotu_afinn |>
   arrange(sentiment_mean) |>
-  slice_head(n = 5) |>
+  slice_head(n = 10) |>
   select(year, president, party_grouped, sentiment_mean, n_scored)
 ```
 
 ```{r}
 sotu_afinn |>
   arrange(desc(sentiment_mean)) |>
-  slice_head(n = 5) |>
+  slice_head(n = 10) |>
   select(year, president, party_grouped, sentiment_mean, n_scored)
 ```
 
@@ -315,8 +318,10 @@ The most negative addresses tend to cluster around periods of war, economic cris
 #| label: fig-afinn-time
 #| fig-cap: "Mean AFINN sentiment score per State of the Union address (1790–2021). The smoothed trend line highlights long-run patterns; individual points are coloured by party."
 
+speech_mean <-  mean(sotu_afinn$sentiment_mean, na.rm = TRUE)
+
 ggplot(sotu_afinn, aes(x = year, y = sentiment_mean)) +
-  geom_hline(yintercept = 0, linetype = "dashed", colour = "gray60") +
+  geom_hline(yintercept = speech_mean, linetype = "dashed", colour = "red") +
   geom_point(aes(colour = party_grouped), alpha = 0.6, size = 1.8) +
   geom_smooth(method = "loess", span = 0.2,
               colour = "black", linewidth = 0.8, se = TRUE) +
@@ -343,24 +348,28 @@ ggplot(sotu_afinn, aes(x = year, y = sentiment_mean)) +
 ## Sentiment by President
 
 ```{r}
+#| eval: true
 #| label: fig-afinn-president
 #| fig-cap: "Mean AFINN sentiment score aggregated across all addresses per president. Error bars show the range across individual addresses."
 
-sotu_afinn |>
-  group_by(president, party_grouped) |>
-  summarise(
+sotu_data <- sotu_afinn |>
+  group_by(president, party_grouped, era) |>
+  summarize(
     mean_sent = mean(sentiment_mean),
     min_sent  = min(sentiment_mean),
     max_sent  = max(sentiment_mean),
     n         = n(),
     .groups   = "drop"
   ) |>
+  
   filter(n >= 2) |>   # only presidents with multiple addresses
-  mutate(president = fct_reorder(president, mean_sent)) |>
-  ggplot(aes(x = mean_sent, y = president, colour = party_grouped)) +
+  mutate(president = fct_reorder(paste(era,president), mean_sent))
+  
+  plot1 <- ggplot(sotu_data, aes(x = mean_sent, y = president, colour = party_grouped)) +
   geom_vline(xintercept = 0, linetype = "dashed", colour = "gray60") +
   geom_linerange(aes(xmin = min_sent, xmax = max_sent), alpha = 0.4) +
-  geom_point(size = 2.5) +
+  geom_point(size = 2.5, ) +
+  # facet_wrap(~era, scales = "free_y") +
   scale_colour_manual(
     values = c(
       "Republican"     = "#CC0000",
@@ -373,12 +382,16 @@ sotu_afinn |>
   labs(
     title = "Mean AFINN Sentiment by President",
     subtitle = "Presidents with 2+ addresses · bars show min–max range",
+    caption = "Created by the author",
     x = "Mean AFINN score",
     y = NULL
   ) +
-  theme_minimal(base_size = 11) +
+  theme_minimal(base_size = 8) +
   theme(legend.position = "bottom")
+  
+plot1
 ```
+
 
 The range bars reveal something important: many presidents show substantial *within-president* variation across their addresses. Roosevelt's wartime addresses read very differently from his New Deal speeches. This reminds us that aggregating to the president level discards meaningful temporal variation — a decision that should be deliberate, not automatic.
 
@@ -819,7 +832,7 @@ crisis_counts |>
   ) +
   theme_minimal(base_size = 12) +
   theme(legend.position = "bottom")
-```
+``` 
 
 ::: {.callout-warning}
 ## The era confound

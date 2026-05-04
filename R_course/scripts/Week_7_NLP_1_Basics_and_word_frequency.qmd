@@ -51,7 +51,9 @@ cran_packages <- c(
   "quanteda.textstats",
   "quanteda.textplots",
   "scales",
-  "knitr"
+  "knitr",
+  "ggthemes",
+  "writexl"
 )
 
 missing <- cran_packages[!cran_packages %in% installed.packages()[, "Package"]]
@@ -316,14 +318,15 @@ tidy_inaugural |>
   slice_head(n = 20) |>
   mutate(word = reorder(word, n)) |>
   ggplot(aes(x = word, y = n)) +
-  geom_col(fill = "#1B6CA8") +
+  geom_col()+ #fill = "#1B6CA8") +
   coord_flip() +
   labs(
     title = "Most Frequent Words in US Inaugural Addresses (1789–2021)",
     x = NULL,
     y = "Count"
-  ) +
-  theme_minimal(base_size = 12)
+  ) #+
+  ggthemes::theme_fivethirtyeight(base_size = 20)
+
 ```
 
 The top words — "government", "people", "nation", "world", "peace", "freedom" — are the perennial vocabulary of American political identity. This is again a validating result: these are exactly the abstractions one expects in ceremonial political speech. Their universality across all presidents is also a reminder of why raw frequency alone is insufficient — to find what is *distinctive* about any era or president, we need tf-idf.
@@ -336,7 +339,10 @@ Before moving to tf-idf, a simpler comparison: how does the vocabulary of Democr
 #| label: fig-dem-rep-compare
 #| fig-cap: "Word frequency comparison between Democratic and Republican inaugural addresses. Words near the diagonal appear at similar rates in both; words far from the line are distinctive to one party."
 
-party_freq <- tidy_inaugural |>
+tidy_inaugural_recent <- tidy_inaugural |> 
+  filter(era == "Contemporary (1981–2021)")
+
+party_freq <- tidy_inaugural_recent |>
   filter(Party %in% c("Democratic", "Republican")) |>
   count(Party, word) |>
   group_by(Party) |>
@@ -348,11 +354,11 @@ party_freq <- tidy_inaugural |>
 # Label the most divergent words
 divergent <- party_freq |>
   mutate(diff = abs(Democratic - Republican)) |>
-  slice_max(diff, n = 25)
+  slice_max(diff, n = 50)
 
 ggplot(party_freq, aes(x = Republican, y = Democratic)) +
   geom_abline(colour = "gray40", linetype = 2) +
-  geom_point(alpha = 0.15, size = 1.8, colour = "#555555") +
+  geom_point(alpha = .2, size = 1.8, colour = "#555555") +
   geom_text(
     data = divergent,
     aes(label = word),
@@ -393,9 +399,11 @@ inaugural_tfidf <- tidy_inaugural |>
   bind_tf_idf(word, era, n) |>
   arrange(desc(tf_idf))
 
+writexl::write_xlsx(inaugural_tfidf, "inaugural_tfidf.xls")
+
 inaugural_tfidf |>
-  select(era, word, n, tf, idf, tf_idf) |>
-  slice_head(n = 10)
+  select(era, word,  n, tf, idf, tf_idf) |>
+  slice_head(n = 100)
 ```
 
 ```{r}
