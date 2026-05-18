@@ -226,16 +226,16 @@ processed <- textProcessor(
   removepunctuation = TRUE,
   stem       = TRUE,
   language   = "en",
-  verbose    = FALSE
+  verbose    = TRUE
 )
 
 # prepDocuments() removes words that appear in fewer than
 # 'lower.thresh' documents — rare words add noise and slow fitting.
 # It also re-indexes the vocabulary after removal.
 out <- prepDocuments(
-  processed$documents,
-  processed$vocab,
-  processed$meta,
+  vocab=processed$vocab,
+  documents=processed$documents,
+  meta=processed$meta,
   lower.thresh = 5,   # word must appear in at least 5 addresses
   verbose      = FALSE
 )
@@ -359,7 +359,7 @@ set.seed(42)
 sotu_stm <- stm(
   documents  = out$documents,
   vocab      = out$vocab,
-  K          = 10,
+  K          = 12,
   prevalence = ~ party_grouped + s(year_c),
   data       = out$meta,
   init.type  = "Spectral",   # more stable initialisation than random
@@ -406,16 +406,18 @@ Based on the FREX words and document examples, we assign interpretive labels. Th
 
 # Edit these labels after inspecting labelTopics() output
 topic_labels <- c(
-  "1"  = "National Security & War",
-  "2"  = "Economic Growth & Trade",
-  "3"  = "Constitutional Government",
-  "4"  = "Social Welfare & Labour",
-  "5"  = "Foreign Policy & Diplomacy",
-  "6"  = "Fiscal Policy & Taxation",
-  "7"  = "Infrastructure & Development",
-  "8"  = "Civil Rights & Democracy",
-  "9"  = "Public Lands & Environment",
-  "10" = "Presidential Address Norms"
+  "1"  = "Economy",
+  "2"  = "War on Terror",
+  "3"  = "Labor",
+  "4"  = "Foreign affairs (early)",
+  "5"  = "Finance",
+  "6"  = "WW2 + Cold War",
+  "7"  = "Energy",
+  "8"  = "Monetary policy",
+  "9"  = "Misc",
+  "10" = "Foreign affairs",
+  "11" = "Borders",
+  "12" = "Misc 2"
 )
 
 cat("Topic labels assigned. Review against labelTopics() output and adjust.\n")
